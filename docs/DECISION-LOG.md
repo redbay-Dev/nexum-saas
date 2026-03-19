@@ -1108,4 +1108,18 @@ Every architectural, product, and workflow decision is recorded here with ration
 **Rationale:** The shared package is consumed by both frontend (DOM environment) and backend (Node.js, which also has `crypto.randomUUID()` since v19). Adding DOM lib is simpler than Node.js-specific crypto imports that wouldn't work in the browser.
 **Alternatives considered:** Use `node:crypto` — rejected, breaks browser usage. Use `globalThis.crypto` with custom type declaration — unnecessary complexity when DOM lib works.
 
+### DEC-156: OpShield as the central platform layer for Nexum and SafeSpec
+**Date:** 2026-03-20
+**Context:** Nexum and SafeSpec are independent products that can be sold separately or bundled. Both currently embed their own Better Auth instances and tenant provisioning. A central platform is needed for unified auth, billing, provisioning, and management.
+**Decision:** Create OpShield as a third project that owns authentication (single Better Auth SSO instance), tenant provisioning (creates schemas in product databases), billing (Stripe), public website (marketing/sign-up), and platform admin (Redbay staff dashboard). Products delegate auth to OpShield but retain their own business logic, databases, roles, and permissions.
+**Rationale:** Extracting auth and billing to a platform layer avoids duplicating provisioning logic across products, enables true SSO, supports independent or bundled sales, and centralises Stripe billing. This is the standard multi-product SaaS pattern (Atlassian, Zoho, MYOB).
+**Alternatives considered:** Keep auth embedded in each product (requires users to create separate accounts per product); shared database between products (creates coupling, violates independence); OpShield as API gateway/broker (adds latency and a single point of failure for all API calls).
+
+### DEC-157: OpShield ports — API 3000, frontend 5170
+**Date:** 2026-03-20
+**Context:** SafeSpec uses 3001/5173, Nexum uses 3002/5174. OpShield needs non-conflicting ports.
+**Decision:** OpShield API on port 3000, frontend on port 5170. Redis prefix `opshield:`, database `opshield_dev`, MinIO bucket `opshield-dev`.
+**Rationale:** Port 3000 is a natural choice for the "first" service (the platform). Frontend port 5170 precedes both SafeSpec and Nexum in the sequence.
+**Alternatives considered:** None — straightforward port assignment.
+
 ---

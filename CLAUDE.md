@@ -59,10 +59,18 @@ nexum/
 - Package manager: **pnpm 10** (not npm, not yarn)
 - Run dev: `pnpm dev` | Build: `pnpm build` | Lint: `pnpm lint` | Test: `pnpm test`
 
+## OpShield Platform
+- **Path**: `/home/redbay/OpShield` (sibling directory: `../OpShield/`)
+- **What**: Central platform layer — owns auth (Better Auth SSO), tenant provisioning, billing (Stripe), public website, platform admin
+- **Relationship**: OpShield provisions tenants and manages subscriptions. Nexum delegates auth to OpShield. OpShield does NOT contain any business logic.
+- **Architecture doc**: `docs/24-OPSHIELD-PLATFORM.md` (exists in all three repos)
+- **Key rule**: Nexum works independently — it just needs an auth endpoint. OpShield is invisible to end users.
+- **Ports**: OpShield API 3000, frontend 5170
+
 ## Sister Project: SafeSpec
 - **Path**: `/home/redbay/saas-project` (sibling directory: `../saas-project/`)
 - **What**: Compliance & WHS management SaaS (NHVAS, WHS, mass, fatigue, maintenance, defects, pre-starts)
-- **Relationship**: SafeSpec owns all compliance. Nexum consumes compliance status via API. Both share the same architecture, auth system (Better Auth), and `@redbay/compliance-shared` package.
+- **Relationship**: SafeSpec owns all compliance. Nexum consumes compliance status via API. Both share the same architecture, and `@redbay/compliance-shared` package. Both delegate auth to OpShield.
 - **Integration doc**: `docs/SAFESPEC-INTEGRATION-NOTE.md` (exists in both repos)
 - **Key rule**: SafeSpec works independently of Nexum. The Nexum connection is optional.
 - **Version differences**: Nexum uses newer versions (Zod 4, Tailwind 4, Vite 8, Vitest 4, ESLint 10). See DEC-147 through DEC-153 in DECISION-LOG.md.
@@ -245,4 +253,5 @@ Configured in `.claude/settings.json`:
 | `docs/21-TECHNICAL-ARCHITECTURE.md` | Infrastructure, stack, API design |
 | `docs/22-DEVELOPMENT-WORKFLOW.md` | Conventions, testing, CI/CD |
 | `docs/23-UI-UX-DESIGN.md` | Navigation, layout, components, brand colours, interaction patterns |
+| `docs/24-OPSHIELD-PLATFORM.md` | OpShield platform architecture |
 | `docs/DECISION-LOG.md` | All architectural decisions |

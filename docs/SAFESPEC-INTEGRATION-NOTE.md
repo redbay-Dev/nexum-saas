@@ -280,12 +280,26 @@ For SafeSpec to support Nexum integration:
 
 ---
 
+## OpShield Platform Layer
+
+As of 2026-03-20, both SafeSpec and Nexum sit under the **OpShield** platform — a central layer that owns authentication (Better Auth SSO), tenant provisioning, billing (Stripe), and a platform admin dashboard.
+
+- **OpShield does NOT broker API calls** between SafeSpec and Nexum. Products talk directly.
+- **OpShield tells each product** when a tenant exists in the other product and provides connection details.
+- **OpShield manages lifecycle** — if a tenant cancels one product, the other is notified.
+
+See `docs/24-OPSHIELD-PLATFORM.md` for full architecture.
+
+---
+
 ## Reference
 
 Full Nexum documentation: `docs/` (this repo)
 Compliance integration detail: `docs/12-COMPLIANCE-SAFETY.md`
-All decisions: `docs/DECISION-LOG.md` (DEC-094 through DEC-102)
+Platform architecture: `docs/24-OPSHIELD-PLATFORM.md`
+All decisions: `docs/DECISION-LOG.md`
 
-**Sister project locations (dev server):**
+**Project locations (dev server):**
+- **OpShield**: `/home/redbay/OpShield`
 - **Nexum**: `/home/redbay/Nexum-SaaS`
 - **SafeSpec**: `/home/redbay/saas-project`

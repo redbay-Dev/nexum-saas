@@ -2,6 +2,43 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.3.0] — 2026-03-20
+
+### OpShield Platform Architecture & Database Reset
+
+**What was built:**
+- Created OpShield platform architecture doc (`docs/24-OPSHIELD-PLATFORM.md`) — defines the central platform layer for auth, billing, provisioning, and admin across Nexum and SafeSpec
+- Scaffolded the OpShield project at `/home/redbay/OpShield/` with CLAUDE.md, project overview, and decision log
+- Updated `SAFESPEC-INTEGRATION-NOTE.md` to reference OpShield and three-project structure
+- Updated `CLAUDE.md` with OpShield section, updated SafeSpec section, added doc 24 to reference table
+
+**Decisions made:**
+- DEC-156: OpShield as the central platform layer (auth SSO, billing, provisioning, admin)
+- DEC-157: OpShield ports — API 3000, frontend 5170
+
+**Database reset:**
+- Dropped and recreated `nexum_dev` (empty, fresh)
+- Dropped and recreated `safespec_dev` (empty, fresh)
+- Created `opshield_dev` (new database for OpShield)
+- All three databases are clean — migrations need to be re-run before development resumes
+
+**All checks passing:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — all passing
+- `pnpm build` — all packages build (chunk size warning noted, not blocking)
+
+**What's STILL MISSING:**
+- OpShield has no code yet — only docs and project structure
+- Auth extraction (Better Auth currently embedded in Nexum and SafeSpec, needs to move to OpShield)
+- Nexum and SafeSpec public schemas need to be re-pushed after DB reset
+- All feature work from previous changelog entries still applies
+
+**What's next:**
+- Decide whether to build OpShield Phase 1 (auth + provisioning) or resume Nexum/SafeSpec feature development
+- If resuming Nexum: re-run public schema migration, then continue with Contacts + Addresses CRUD (doc 02)
+- If building OpShield: scaffold monorepo, set up Better Auth as THE SSO instance, build tenant registry
+
 ## [0.2.1] — 2026-03-20
 
 ### UI/UX Overhaul — Brand Theme & Page Styling
