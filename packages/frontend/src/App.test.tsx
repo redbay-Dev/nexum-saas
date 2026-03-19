@@ -4,13 +4,23 @@ import { MemoryRouter } from "react-router";
 import { App } from "./App.js";
 
 describe("App", () => {
-  it("should render the landing page", () => {
+  it("should render the login page for unauthenticated users", () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/login"]}>
         <App />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Nexum")).toBeInTheDocument();
+    expect(screen.getByText("Enter your credentials to continue")).toBeInTheDocument();
+  });
+
+  it("should render the register page", () => {
+    render(
+      <MemoryRouter initialEntries={["/register"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Set up your Nexum account")).toBeInTheDocument();
   });
 });

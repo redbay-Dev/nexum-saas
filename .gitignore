@@ -39,3 +39,4 @@ docker/miniodata/
 # Claude Code
 .agents/
 skills-lock.json
+.playwright-mcp/

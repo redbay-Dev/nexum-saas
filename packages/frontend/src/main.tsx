@@ -1,8 +1,20 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TooltipProvider } from "@frontend/components/ui/tooltip.js";
+import { Toaster } from "@frontend/components/ui/sonner.js";
 import { App } from "./App.js";
 import "./index.css";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60, // 1 minute
+      retry: 1,
+    },
+  },
+});
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -11,8 +23,13 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <TooltipProvider>
+          <App />
+          <Toaster />
+        </TooltipProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   </StrictMode>,
 );

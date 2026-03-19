@@ -2,6 +2,112 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.2.1] — 2026-03-20
+
+### UI/UX Overhaul — Brand Theme & Page Styling
+
+**What was fixed:**
+- Complete CSS theme overhaul: replaced default shadcn neutral grayscale with Nexum brand colour `#005AD0` (oklch 0.45 0.19 260) per `docs/23-UI-UX-DESIGN.md`
+- Dark sidebar theme (dark navy background, light text) — matches design doc spec
+- Added `--success`, `--warning` semantic colour tokens
+- Border radius set to 6px per design doc spec (was 10px default)
+- Proper chart colours with distinct hues
+
+**Pages restyled (all):**
+- Login, Register, Onboard: proper `p-8` card padding, `h-11` inputs, `shadow-md` cards, `rounded-xl` with explicit borders
+- Dashboard: stat cards with visible shadow and depth, larger icon containers, better spacing
+- App Shell: sidebar header/footer padding increased, main content `p-8`, header bar `px-6`
+- Companies list: card with border-separated toolbar/table/footer sections, proper search input height
+- Company create/detail: form sections with `border-t`/`border-b` separators, `h-11` inputs throughout
+
+**Documentation:**
+- Added `docs/23-UI-UX-DESIGN.md` to CLAUDE.md reference table
+- Updated App.test.tsx to match new page copy
+
+**All checks passing:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — all passing
+- `pnpm build` — all packages build (chunk size warning noted, not blocking)
+
+**What's STILL MISSING:**
+- Same as 0.2.0 — this was a UI fix session, no new features added
+- Dark mode toggle not yet implemented (theme tokens are ready)
+- Global search / command palette (Ctrl+K)
+- Double-click to open / right-click context menu on tables (per doc 23)
+- Sidebar collapse/expand behaviour (per doc 23 responsive spec)
+
+**What's next:**
+- Contacts + Addresses CRUD (completing doc 02 — Business Entities)
+- Drivers/Employees (doc 03)
+- Dark mode toggle implementation
+- Consider code-splitting to address build chunk size warning
+
+## [0.2.0] — 2026-03-20
+
+### Phase 2-3: Database, Auth & First Feature
+
+**What was built:**
+- `.env.development` with real credentials for shared dev services (PostgreSQL, Redis, MinIO, MailHog)
+- Created `nexum_dev` database on shared PostgreSQL instance
+- Better Auth 1.5 integration (backend):
+  - `src/auth.ts` — Better Auth config with Drizzle adapter, email/password, session caching, 2FA plugin
+  - `src/db/schema/auth.ts` — Full Drizzle schema for Better Auth tables (user, session, account, verification, two_factor) with relations
+  - `src/middleware/auth.ts` — Session extraction from Fastify requests
+  - `src/middleware/tenant.ts` — Real implementation: extracts tenant context from Better Auth session, looks up membership + schema, creates tenant-scoped DB client
+  - Better Auth catch-all route handler registered in app.ts (`/api/auth/*`)
+- Tenant provisioning system:
+  - `src/db/provision-tenant.ts` — provisionTenantSchema(), migrateTenantSchema(), migrateAllTenants() with FK reference transformation and migration tracking
+  - Generated migrations for public schema (8 tables) and tenant schema (9 tables) via drizzle-kit
+  - Pushed public schema to PostgreSQL
+- API routes:
+  - `POST /api/v1/onboard` — Creates tenant, provisions schema, seeds organisation, links authenticated user as owner
+  - `GET /api/v1/auth/me` — Returns user identity, role, permissions
+  - `GET/POST/PUT/DELETE /api/v1/companies` — Full CRUD with pagination, search, role filtering, audit logging, soft deletes
+- Frontend (React 19 + shadcn/ui base-nova):
+  - shadcn/ui initialized with 18 components (button, input, label, card, dialog, table, sidebar, badge, select, textarea, sonner, etc.)
+  - Better Auth React client (`lib/auth-client.ts`)
+  - API client with typed fetch wrapper (`lib/api-client.ts`)
+  - Auth hooks: `useAuth`, `useAuthLoader` with permission check helper
+  - Protected route with redirect to login or onboard
+  - Login page, Register page, Onboard (workspace creation) page
+  - App shell with sidebar navigation (Dashboard, Companies, placeholder items for Drivers/Assets/Materials)
+  - Companies list page with search, role filter tabs, data table
+  - Create company page with form (name, trading name, ABN, phone, email, roles, notes)
+  - Company detail/edit page with update and delete
+  - TanStack Query hooks for all company operations
+  - Dashboard page with placeholder KPI cards
+
+**Decisions made:**
+- Better Auth URL set to `http://localhost:3002` (same as API, auth is embedded not separate)
+- Onboarding flow: sign up → create workspace (tenant) → enter app
+- shadcn/ui style: base-nova (uses @base-ui/react primitives, `render` prop instead of `asChild`)
+- Companies CRUD is the first feature slice to prove full stack works end-to-end
+
+**All checks passing:**
+- `pnpm type-check` — zero errors
+- `pnpm lint` — zero warnings
+- `pnpm test` — 6 test files, all passing
+- `pnpm build` — all 4 packages build successfully
+
+**What's STILL MISSING:**
+- Husky pre-commit hooks
+- OpenAPI/Swagger documentation (@fastify/swagger + @scalar/api-reference)
+- Contacts, Addresses, Entry Points, Regions CRUD (schemas and DB tables exist, no routes/UI)
+- Drivers/Employees (doc 03) — not started
+- Assets/Fleet (doc 04) — not started
+- Materials/Disposal (doc 05) — not started
+- Jobs, Scheduling, Dockets, Pricing, Invoicing (docs 06-11) — not started
+- Platform features: compliance, comms, portal, documents, AI, reporting, maps, DriverX API (docs 12-20)
+- E2E tests (Playwright)
+- Integration tests for API routes (need test DB setup)
+
+**What's next:**
+- Contacts + Addresses CRUD (completing doc 02 — Business Entities)
+- Drivers/Employees (doc 03)
+- Assets/Fleet (doc 04)
+- OpenAPI documentation
+
 ## [0.1.0] — 2026-03-19
 
 ### Phase 1: Monorepo Scaffold

@@ -244,4 +244,5 @@ Configured in `.claude/settings.json`:
 | `docs/18-ADMINISTRATION.md` | Permissions, roles, audit |
 | `docs/21-TECHNICAL-ARCHITECTURE.md` | Infrastructure, stack, API design |
 | `docs/22-DEVELOPMENT-WORKFLOW.md` | Conventions, testing, CI/CD |
+| `docs/23-UI-UX-DESIGN.md` | Navigation, layout, components, brand colours, interaction patterns |
 | `docs/DECISION-LOG.md` | All architectural decisions |

@@ -1,7 +1,10 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
+import { eq } from "drizzle-orm";
+import { db, getTenantDb } from "../db/client.js";
+import { tenants, tenantUsers } from "../db/schema/public.js";
+import { getSession } from "./auth.js";
 import type { Permission, UserRole } from "@nexum/shared";
 import { hasPermission } from "@nexum/shared";
-import type { getTenantDb } from "../db/client.js";
 
 export interface TenantContext {
   userId: string;
@@ -14,24 +17,48 @@ export interface TenantContext {
 }
 
 /**
- * Extract tenant context from the authenticated request.
- * In Phase 3, this will read from Better Auth session.
- * For now, returns null (placeholder).
+ * Resolve tenant context from the authenticated session.
+ *
+ * Looks up the user's tenant membership (including role), then creates a
+ * tenant-scoped Drizzle client. Returns null if user is not authenticated
+ * or has no tenant.
  */
-async function getTenantContext(
-  _request: FastifyRequest,
+export async function getTenantContext(
+  request: FastifyRequest,
 ): Promise<TenantContext | null> {
-  // TODO: Phase 3 — Extract from Better Auth session
-  // 1. Get session from cookie/token
-  // 2. Look up tenant_users to get tenant membership
-  // 3. Look up tenant to get schema name
-  // 4. Build and return TenantContext
-  return null;
+  const session = await getSession(request);
+  if (!session) return null;
+
+  const [membership] = await db
+    .select()
+    .from(tenantUsers)
+    .where(eq(tenantUsers.userId, session.user.id))
+    .limit(1);
+
+  if (!membership) return null;
+
+  const [tenant] = await db
+    .select({ schemaName: tenants.schemaName })
+    .from(tenants)
+    .where(eq(tenants.id, membership.tenantId))
+    .limit(1);
+
+  if (!tenant) return null;
+
+  return {
+    userId: session.user.id,
+    userEmail: session.user.email,
+    tenantId: membership.tenantId,
+    schemaName: tenant.schemaName,
+    role: membership.role as UserRole,
+    isOwner: membership.isOwner,
+    tenantDb: getTenantDb(tenant.schemaName),
+  };
 }
 
 /**
- * Fastify preHandler hook that requires tenant authentication.
- * Attaches tenant context to request.tenant.
+ * Fastify preHandler that requires tenant context.
+ * Attaches tenant context to request for use in route handlers.
  */
 export async function requireTenant(
   request: FastifyRequest,
@@ -39,7 +66,7 @@ export async function requireTenant(
 ): Promise<void> {
   const ctx = await getTenantContext(request);
   if (!ctx) {
-    reply.status(401).send({
+    void reply.status(401).send({
       error: "Authentication and tenant membership required",
       code: "UNAUTHENTICATED",
     });
@@ -52,15 +79,16 @@ export async function requireTenant(
  * Helper to extract tenant context from request.
  * Use inside route handlers after requireTenant preHandler.
  */
-export function tenant(
-  request: FastifyRequest,
-): TenantContext {
+export function tenant(request: FastifyRequest): TenantContext {
   return (request as FastifyRequest & { tenant: TenantContext }).tenant;
 }
 
 /**
  * Factory function that creates a permission check preHandler.
- * Usage: { preHandler: requirePermission("manage:companies") }
+ * Must be used AFTER requireTenant (which attaches TenantContext).
+ *
+ * Usage:
+ *   app.post("/", { preHandler: [requireTenant, requirePermission("manage:companies")] }, handler)
  */
 export function requirePermission(permission: Permission) {
   return async function checkPermission(
@@ -69,16 +97,18 @@ export function requirePermission(permission: Permission) {
   ): Promise<void> {
     const ctx = (request as FastifyRequest & { tenant: TenantContext }).tenant;
     if (!ctx) {
-      reply.status(401).send({
+      void reply.status(401).send({
         error: "Authentication required",
         code: "UNAUTHENTICATED",
       });
       return;
     }
     if (!hasPermission(ctx.role, permission)) {
-      reply.status(403).send({
-        error: `Insufficient permissions. Required: ${permission}`,
+      void reply.status(403).send({
+        error: "Insufficient permissions",
         code: "FORBIDDEN",
+        requiredPermission: permission,
+        yourRole: ctx.role,
       });
       return;
     }
