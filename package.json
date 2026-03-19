@@ -1,0 +1,55 @@
+{
+  "name": "nexum",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Nexum - Multi-tenant SaaS for Australian transport, earthmoving, civil construction, and logistics",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "test:unit": "turbo test:unit",
+    "test:integration": "turbo test:integration",
+    "test:e2e": "pnpm --filter @nexum/frontend test:e2e",
+    "test:watch": "turbo test:watch",
+    "lint": "turbo lint",
+    "lint:fix": "turbo lint:fix",
+    "format": "prettier --write \"**/*.{ts,tsx,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,css,md}\"",
+    "type-check": "turbo type-check",
+    "clean": "turbo clean && rm -rf node_modules",
+    "db:generate": "pnpm --filter @nexum/backend db:generate",
+    "db:generate:tenant": "pnpm --filter @nexum/backend db:generate:tenant",
+    "db:push": "pnpm --filter @nexum/backend db:push",
+    "db:migrate": "pnpm --filter @nexum/backend db:migrate",
+    "db:migrate:public": "pnpm --filter @nexum/backend db:migrate:public",
+    "db:migrate:tenants": "pnpm --filter @nexum/backend db:migrate:tenants",
+    "db:migrate:tenant": "pnpm --filter @nexum/backend db:migrate:tenant",
+    "db:studio": "pnpm --filter @nexum/backend db:studio",
+    "db:seed": "pnpm --filter @nexum/backend db:seed",
+    "db:seed:test": "pnpm --filter @nexum/backend db:seed:test",
+    "db:reset": "pnpm --filter @nexum/backend db:reset"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "eslint": "^9.28.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "turbo": "^2.8.19",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "puppeteer",
+      "msgpackr-extract"
+    ]
+  }
+}

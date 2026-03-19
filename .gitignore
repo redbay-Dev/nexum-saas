@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+.turbo/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+
+# Docker volumes (local)
+docker/pgdata/
+docker/redisdata/
+docker/miniodata/
+
+# Generated
+*.tsbuildinfo
+
+# Claude Code
+.agents/
+skills-lock.json

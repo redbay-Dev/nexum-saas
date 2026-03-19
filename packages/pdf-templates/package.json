@@ -1,0 +1,36 @@
+{
+  "name": "@nexum/pdf-templates",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./helpers": {
+      "types": "./dist/shared/helpers.d.ts",
+      "import": "./dist/shared/helpers.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "lint": "echo 'No lint configured for templates'",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "handlebars": "^4.7.8"
+  },
+  "devDependencies": {
+    "tsup": "^8.4.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}
