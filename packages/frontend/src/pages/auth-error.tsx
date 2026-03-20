@@ -33,7 +33,7 @@ export function AuthErrorPage(): React.JSX.Element {
           </div>
 
           <Button
-            onClick={() => void redirectToLogin()}
+            onClick={redirectToLogin}
             className="h-11 w-full text-sm font-medium"
           >
             Try Again

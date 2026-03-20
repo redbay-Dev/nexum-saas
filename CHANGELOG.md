@@ -2,6 +2,56 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.6.1] — 2026-03-21
+
+### Port Configuration Fix + Auth Flow + shadcn/ui Update
+
+**What was fixed:**
+- Corrected all stale port references across Nexum, OpShield, and SafeSpec
+- Nexum frontend: 5171, SafeSpec frontend: 5172, OpShield frontend: 5170
+- Previously had Vite defaults (5173/5174) in env files, config defaults, and docs
+- This caused OpShield to redirect to wrong ports after auth, VSCode to auto-forward phantom ports
+
+**Auth flow improvements:**
+- Added `/login` page that auto-redirects to OpShield SSO, shows error messages on callback failure
+- Simplified `ProtectedRoute` — uses `<Navigate to="/login">` instead of imperative redirect with loading state
+- Refactored `auth-client.ts` — cleaner session checking, proper cookie-based auth with `redirectToLogin()` helper
+- Updated `App.tsx` — added `/login` route, dashboard moved to `/dashboard` path, catch-all redirects to `/login`
+
+**shadcn/ui component update:**
+- Changed component style from `radix-nova` to `new-york` in `components.json`
+- Updated 17 UI components (avatar, badge, button, card, dialog, dropdown-menu, field, input, label, select, separator, sheet, sidebar, skeleton, sonner, table, textarea, tooltip) to match new-york style
+
+**Config/env:**
+- `.env.example` — Replaced old Better Auth vars with OpShield config vars
+- `packages/backend/src/config.ts` — Fixed `frontendUrl` default to 5171
+- `packages/frontend/vite.config.ts` — Fixed dev server port to 5171
+- `packages/frontend/playwright.config.ts` — Fixed baseURL to 5171
+- `packages/frontend/src/App.test.tsx` — Fixed test to navigate to `/dashboard` instead of `/`
+- `packages/frontend/src/vite-env.d.ts` — Added Vite client type declarations
+
+**Docs updated:**
+- `docs/24-OPSHIELD-PLATFORM.md`, `docs/DECISION-LOG.md` — Corrected port references
+
+**Known issues:**
+- None
+
+**Still missing from spec (unchanged from 0.6.0):**
+- Full job system (doc 06) — not started
+- Scheduling (doc 07) — not started
+- Dockets/daysheets (doc 08) — not started
+- Pricing engine (doc 09) — not started
+- Invoicing/RCTI (doc 10) — not started
+- All optional modules — not started
+- Dashboard with real widgets — currently placeholder
+- Permission system with role-based access — middleware exists but no granular permissions yet
+- Document management (doc 15) — not started
+
+**What's next:**
+- Build the Job System (doc 06) — core feature, needed before scheduling, dockets, and pricing
+- Implement granular permission system (doc 18) — needed for all CRUD operations
+- Build Dashboard widgets with real data (doc 04)
+
 ## [0.6.0] — 2026-03-20
 
 ### Drivers & Employees (Doc 03) + OpShield Integration Completion
@@ -331,7 +381,7 @@ Shared package:
 - Tests: ABN validation, phone formatting, date/currency formatting, Handlebars helpers, health check endpoint, React App component
 
 **Decisions made:**
-- API port 3002 (SafeSpec uses 3001), frontend port 5174 (SafeSpec uses 5173)
+- API port 3002 (SafeSpec uses 3001), frontend port 5171 (SafeSpec uses 5172)
 - Redis key prefix `nexum:` (SafeSpec uses `safespec:`)
 - Database name `nexum_dev` (SafeSpec uses `safespec_dev`)
 

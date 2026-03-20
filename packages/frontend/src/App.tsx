@@ -1,6 +1,7 @@
-import { Routes, Route } from "react-router";
+import { Routes, Route, Navigate } from "react-router";
 import { ProtectedRoute } from "@frontend/components/protected-route.js";
 import { AppShell } from "@frontend/components/app-shell.js";
+import { LoginPage } from "@frontend/pages/login.js";
 import { AuthErrorPage } from "@frontend/pages/auth-error.js";
 import { DashboardPage } from "@frontend/pages/dashboard.js";
 import { CompaniesPage } from "@frontend/pages/companies/index.js";
@@ -22,10 +23,11 @@ import { EmployeeDetailPage } from "@frontend/pages/employees/detail.js";
 export function App(): React.JSX.Element {
   return (
     <Routes>
-      {/* Auth error page (shown when OpShield callback fails) */}
+      {/* Login — redirects to OpShield for SSO, shows errors on callback failure */}
+      <Route path="/login" element={<LoginPage />} />
       <Route path="/auth-error" element={<AuthErrorPage />} />
 
-      {/* All other routes are protected — unauthenticated users redirect to OpShield */}
+      {/* All other routes are protected — unauthenticated users redirect to /login */}
       <Route
         element={
           <ProtectedRoute>
@@ -33,7 +35,7 @@ export function App(): React.JSX.Element {
           </ProtectedRoute>
         }
       >
-        <Route index element={<DashboardPage />} />
+        <Route path="dashboard" element={<DashboardPage />} />
         <Route path="companies" element={<CompaniesPage />} />
         <Route path="companies/new" element={<CreateCompanyPage />} />
         <Route path="companies/:id" element={<CompanyDetailPage />} />
@@ -50,6 +52,9 @@ export function App(): React.JSX.Element {
         <Route path="employees/new" element={<CreateEmployeePage />} />
         <Route path="employees/:id" element={<EmployeeDetailPage />} />
       </Route>
+
+      {/* Default redirect */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

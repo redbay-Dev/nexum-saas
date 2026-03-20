@@ -1094,10 +1094,10 @@ Every architectural, product, and workflow decision is recorded here with ration
 
 ---
 
-### DEC-154: Nexum API on port 3002, frontend on port 5174 (separate from SafeSpec)
+### DEC-154: Nexum API on port 3002, frontend on port 5171 (separate from SafeSpec)
 **Date:** 2026-03-19
-**Context:** SafeSpec uses API port 3001 and frontend port 5173. Both projects run on the same dev server and must not conflict.
-**Decision:** Nexum API runs on port 3002, frontend on port 5174. Redis key prefix `nexum:`, database `nexum_dev`, MinIO bucket `nexum-dev`.
+**Context:** SafeSpec uses API port 3001 and frontend port 5172. Both projects run on the same dev server and must not conflict.
+**Decision:** Nexum API runs on port 3002, frontend on port 5171. Redis key prefix `nexum:`, database `nexum_dev`, MinIO bucket `nexum-dev`.
 **Rationale:** Must avoid port and namespace conflicts with SafeSpec. Sequential port numbers are easy to remember.
 **Alternatives considered:** Arbitrary ports — rejected, sequential numbering is clearer.
 
@@ -1117,7 +1117,7 @@ Every architectural, product, and workflow decision is recorded here with ration
 
 ### DEC-157: OpShield ports — API 3000, frontend 5170
 **Date:** 2026-03-20
-**Context:** SafeSpec uses 3001/5173, Nexum uses 3002/5174. OpShield needs non-conflicting ports.
+**Context:** SafeSpec uses 3001/5172, Nexum uses 3002/5171. OpShield needs non-conflicting ports.
 **Decision:** OpShield API on port 3000, frontend on port 5170. Redis prefix `opshield:`, database `opshield_dev`, MinIO bucket `opshield-dev`.
 **Rationale:** Port 3000 is a natural choice for the "first" service (the platform). Frontend port 5170 precedes both SafeSpec and Nexum in the sequence.
 **Alternatives considered:** None — straightforward port assignment.

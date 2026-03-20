@@ -55,16 +55,16 @@ describe("App", () => {
     expect(screen.getByText("Authentication Error")).toBeInTheDocument();
   });
 
-  it("should show loading state for protected routes when not authenticated", () => {
+  it("should redirect unauthenticated users to login from protected routes", async () => {
     render(
-      <MemoryRouter initialEntries={["/"]}>
+      <MemoryRouter initialEntries={["/dashboard"]}>
         <App />
       </MemoryRouter>,
     );
 
-    // ProtectedRoute shows skeleton while checking auth, then redirects
-    // During the pending phase, skeletons are shown
-    const skeletons = document.querySelectorAll("[data-slot='skeleton']");
-    expect(skeletons.length).toBeGreaterThan(0);
+    // ProtectedRoute checks auth (returns 401), then redirects to /login
+    // The login page auto-redirects to OpShield, showing "Redirecting to login..."
+    const redirectText = await screen.findByText("Redirecting to login...");
+    expect(redirectText).toBeInTheDocument();
   });
 });

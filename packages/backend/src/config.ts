@@ -55,6 +55,6 @@ export const config = {
     apiSecret: process.env.SMS_API_SECRET ?? "",
     fromNumber: process.env.SMS_FROM_NUMBER ?? "",
   },
-  frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5174",
+  frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5171",
   logLevel: process.env.LOG_LEVEL ?? "info",
 } as const;

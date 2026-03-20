@@ -1,56 +1,74 @@
 /**
- * Auth client for OpShield-delegated authentication.
+ * Auth client for Nexum.
  *
- * Nexum does NOT run its own auth — it delegates to OpShield.
- * This module provides helpers to check session status and redirect
- * to OpShield for login/signup/logout.
+ * Authentication is handled by OpShield.
+ * Nexum only needs to:
+ * 1. Check if the user has a valid session (cookie-based)
+ * 2. Sign out (clear the session cookie)
+ *
+ * The session cookie is set by:
+ *   GET /api/v1/auth/callback (redirect from OpShield after SSO login)
  */
 
-interface LoginUrls {
-  loginUrl: string;
-  signupUrl: string;
+import { useState, useEffect } from "react";
+
+const OPSHIELD_URL =
+  import.meta.env.VITE_OPSHIELD_URL ?? "http://localhost:5170";
+const NEXUM_CALLBACK = `${window.location.origin}/api/v1/auth/callback`;
+
+interface SessionData {
+  userId: string;
+  email: string;
+  name: string;
+  tenantId: string;
+  role: string;
+  isOwner: boolean;
 }
 
-let cachedUrls: LoginUrls | null = null;
+interface SessionState {
+  data: SessionData | null;
+  isPending: boolean;
+}
 
 /**
- * Fetch the OpShield login/signup URLs from the backend.
- * Cached after first call.
+ * React hook that checks for an active session via /api/v1/auth/me.
+ * Returns session data if authenticated, null otherwise.
  */
-export async function getAuthUrls(): Promise<LoginUrls> {
-  if (cachedUrls) return cachedUrls;
+export function useSession(): SessionState {
+  const [data, setData] = useState<SessionData | null>(null);
+  const [isPending, setIsPending] = useState(true);
 
-  const res = await fetch("/api/v1/auth/login-url", {
-    credentials: "include",
-  });
+  useEffect(() => {
+    fetch("/api/v1/auth/me", { credentials: "include" })
+      .then(async (res) => {
+        if (res.ok) {
+          const body = (await res.json()) as { data: SessionData };
+          setData(body.data);
+        } else {
+          setData(null);
+        }
+      })
+      .catch(() => setData(null))
+      .finally(() => setIsPending(false));
+  }, []);
 
-  if (!res.ok) {
-    // Fallback for dev when backend is not running
-    return {
-      loginUrl: "http://localhost:3000/login?product=nexum",
-      signupUrl: "http://localhost:3000/signup?product=nexum",
-    };
-  }
-
-  const body = (await res.json()) as { success: boolean; data: LoginUrls };
-  cachedUrls = body.data;
-  return cachedUrls;
+  return { data, isPending };
 }
 
 /**
  * Redirect to OpShield login page.
  */
-export async function redirectToLogin(): Promise<void> {
-  const urls = await getAuthUrls();
-  window.location.href = urls.loginUrl;
+export function redirectToLogin(): void {
+  const loginUrl = `${OPSHIELD_URL}/auth/login?redirect=${encodeURIComponent(NEXUM_CALLBACK)}`;
+  window.location.href = loginUrl;
 }
 
 /**
  * Redirect to OpShield signup page.
  */
-export async function redirectToSignup(): Promise<void> {
-  const urls = await getAuthUrls();
-  window.location.href = urls.signupUrl;
+export function redirectToSignup(): void {
+  const signupUrl = `${OPSHIELD_URL}/auth/sign-up?redirect=${encodeURIComponent(NEXUM_CALLBACK)}`;
+  window.location.href = signupUrl;
 }
 
 /**
@@ -61,7 +79,5 @@ export async function signOut(): Promise<void> {
     method: "POST",
     credentials: "include",
   });
-  // Redirect to OpShield login after clearing local session
-  const urls = await getAuthUrls();
-  window.location.href = urls.loginUrl;
+  redirectToLogin();
 }
