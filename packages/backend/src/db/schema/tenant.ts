@@ -310,6 +310,149 @@ export const qualifications = pgTable(
   ],
 );
 
+// ── Asset Categories (tenant-configurable) ──
+
+export const assetCategories = pgTable("asset_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 100 }).notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // truck, trailer, equipment, tool
+  industryType: varchar("industry_type", { length: 20 }).notNull().default("transport"),
+  enableSpecifications: boolean("enable_specifications").notNull().default(true),
+  enableWeightSpecs: boolean("enable_weight_specs").notNull().default(false),
+  enableMassScheme: boolean("enable_mass_scheme").notNull().default(false),
+  enableEngineHours: boolean("enable_engine_hours").notNull().default(false),
+  enableCapacityFields: boolean("enable_capacity_fields").notNull().default(false),
+  enableRegistration: boolean("enable_registration").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+// ── Asset Subcategories ──
+
+export const assetSubcategories = pgTable(
+  "asset_subcategories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => assetCategories.id),
+    name: varchar("name", { length: 100 }).notNull(),
+    vehicleConfiguration: varchar("vehicle_configuration", { length: 100 }),
+    defaultVolume: numeric("default_volume", { precision: 10, scale: 2 }),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("asset_subcategories_category_id_idx").on(table.categoryId),
+  ],
+);
+
+// ── Assets ──
+
+export const assets = pgTable(
+  "assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    assetNumber: varchar("asset_number", { length: 50 }),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => assetCategories.id),
+    subcategoryId: uuid("subcategory_id").references(
+      () => assetSubcategories.id,
+    ),
+    ownership: varchar("ownership", { length: 20 }).notNull().default("tenant"),
+    contractorCompanyId: uuid("contractor_company_id").references(
+      () => companies.id,
+    ),
+    status: varchar("status", { length: 20 }).notNull().default("available"),
+
+    // Registration
+    registrationNumber: varchar("registration_number", { length: 20 }),
+    registrationState: varchar("registration_state", { length: 3 }),
+    registrationExpiry: varchar("registration_expiry", { length: 10 }),
+
+    // Make/model
+    make: varchar("make", { length: 100 }),
+    model: varchar("model", { length: 100 }),
+    year: integer("year"),
+    vin: varchar("vin", { length: 50 }),
+
+    // Weight specs
+    tareWeight: numeric("tare_weight", { precision: 10, scale: 2 }),
+    gvm: numeric("gvm", { precision: 10, scale: 2 }),
+    gcm: numeric("gcm", { precision: 10, scale: 2 }),
+    vehicleConfiguration: varchar("vehicle_configuration", { length: 100 }),
+    massScheme: varchar("mass_scheme", { length: 50 }),
+
+    // Body configuration
+    bodyMaterial: varchar("body_material", { length: 100 }),
+    sideHeight: numeric("side_height", { precision: 6, scale: 2 }),
+    bodyType: varchar("body_type", { length: 100 }),
+
+    // Equipment fitted
+    equipmentFitted: jsonb("equipment_fitted").$type<{
+      scales: boolean;
+      mudLocks: boolean;
+      fireExtinguisher: boolean;
+      firstAid: boolean;
+      uhfRadio: boolean;
+      gpsTracking: boolean;
+      isolationSwitch: boolean;
+    }>(),
+
+    // Capacity
+    capacity: numeric("capacity", { precision: 10, scale: 2 }),
+    capacityUnit: varchar("capacity_unit", { length: 20 }),
+
+    // Tracking
+    engineHours: numeric("engine_hours", { precision: 10, scale: 1 }),
+    engineHoursDate: varchar("engine_hours_date", { length: 10 }),
+    odometer: numeric("odometer", { precision: 10, scale: 0 }),
+    odometerDate: varchar("odometer_date", { length: 10 }),
+
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("assets_category_id_idx").on(table.categoryId),
+    index("assets_subcategory_id_idx").on(table.subcategoryId),
+    index("assets_status_idx").on(table.status),
+    index("assets_ownership_idx").on(table.ownership),
+    index("assets_contractor_company_id_idx").on(table.contractorCompanyId),
+    index("assets_registration_number_idx").on(table.registrationNumber),
+  ],
+);
+
+// ── Default Pairings (truck-trailer) ──
+
+export const defaultPairings = pgTable(
+  "default_pairings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    truckId: uuid("truck_id")
+      .notNull()
+      .references(() => assets.id),
+    trailerId: uuid("trailer_id")
+      .notNull()
+      .references(() => assets.id),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("default_pairings_truck_id_idx").on(table.truckId),
+    index("default_pairings_trailer_id_idx").on(table.trailerId),
+  ],
+);
+
 // ── Roles & Permissions ──
 
 export const roles = pgTable("roles", {

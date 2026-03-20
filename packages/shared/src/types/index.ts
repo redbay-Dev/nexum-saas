@@ -26,6 +26,14 @@ import type {
   createQualificationSchema,
   updateQualificationSchema,
   emergencyContactSchema,
+  createAssetCategorySchema,
+  updateAssetCategorySchema,
+  createAssetSubcategorySchema,
+  updateAssetSubcategorySchema,
+  createAssetSchema,
+  updateAssetSchema,
+  equipmentFittedSchema,
+  createDefaultPairingSchema,
 } from "../schemas/index.js";
 
 // ── Base Types ──
@@ -97,6 +105,17 @@ export type CreateQualificationTypeInput = z.infer<typeof createQualificationTyp
 export type UpdateQualificationTypeInput = z.infer<typeof updateQualificationTypeSchema>;
 export type CreateQualificationInput = z.infer<typeof createQualificationSchema>;
 export type UpdateQualificationInput = z.infer<typeof updateQualificationSchema>;
+
+// ── Asset Types ──
+
+export type CreateAssetCategoryInput = z.infer<typeof createAssetCategorySchema>;
+export type UpdateAssetCategoryInput = z.infer<typeof updateAssetCategorySchema>;
+export type CreateAssetSubcategoryInput = z.infer<typeof createAssetSubcategorySchema>;
+export type UpdateAssetSubcategoryInput = z.infer<typeof updateAssetSubcategorySchema>;
+export type CreateAssetInput = z.infer<typeof createAssetSchema>;
+export type UpdateAssetInput = z.infer<typeof updateAssetSchema>;
+export type EquipmentFitted = z.infer<typeof equipmentFittedSchema>;
+export type CreateDefaultPairingInput = z.infer<typeof createDefaultPairingSchema>;
 
 // ── Tenant Context (used by middleware) ──
 

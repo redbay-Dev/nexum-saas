@@ -11,6 +11,8 @@ import { entryPointRoutes } from "./routes/entry-points.js";
 import { regionRoutes } from "./routes/regions.js";
 import { employeeRoutes } from "./routes/employees.js";
 import { qualificationTypeRoutes } from "./routes/qualification-types.js";
+import { assetCategoryRoutes } from "./routes/asset-categories.js";
+import { assetRoutes } from "./routes/assets.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 
 /**
@@ -95,6 +97,10 @@ export function buildApp(): ReturnType<typeof Fastify> {
       void api.register(qualificationTypeRoutes, {
         prefix: "/qualification-types",
       });
+      void api.register(assetCategoryRoutes, {
+        prefix: "/asset-categories",
+      });
+      void api.register(assetRoutes, { prefix: "/assets" });
     },
     { prefix: "/api/v1" },
   );

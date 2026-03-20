@@ -128,10 +128,40 @@ export const ASSET_CATEGORIES = [
   "truck",
   "trailer",
   "equipment",
-  "other",
+  "tool",
 ] as const;
 
 export type AssetCategory = (typeof ASSET_CATEGORIES)[number];
+
+// ── Asset Operational Status ──
+export const ASSET_STATUSES = [
+  "available",
+  "in_use",
+  "maintenance",
+  "inspection",
+  "repairs",
+  "grounded",
+  "retired",
+] as const;
+
+export type AssetStatus = (typeof ASSET_STATUSES)[number];
+
+// ── Asset Ownership ──
+export const ASSET_OWNERSHIP_TYPES = [
+  "tenant",
+  "contractor",
+] as const;
+
+export type AssetOwnershipType = (typeof ASSET_OWNERSHIP_TYPES)[number];
+
+// ── Industry Types (for category configuration) ──
+export const INDUSTRY_TYPES = [
+  "transport",
+  "construction",
+  "general",
+] as const;
+
+export type IndustryType = (typeof INDUSTRY_TYPES)[number];
 
 // ── Pricing Behaviour Types ──
 export const PRICING_BEHAVIOURS = [

@@ -2,6 +2,67 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.7.0] — 2026-03-21
+
+### Assets & Fleet (Doc 04) — Full CRUD Implementation
+
+**What was built:**
+
+Shared package — new constants and schemas:
+- `ASSET_STATUSES` (available, in_use, maintenance, inspection, repairs, grounded, retired)
+- `ASSET_OWNERSHIP_TYPES` (tenant, contractor)
+- `INDUSTRY_TYPES` (transport, construction, general)
+- Zod schemas: `createAssetCategorySchema`, `createAssetSubcategorySchema`, `createAssetSchema`, `updateAssetSchema`, `equipmentFittedSchema`, `createDefaultPairingSchema`
+- Updated `ASSET_CATEGORIES` — changed `other` to `tool` per spec
+
+Backend — 4 new DB tables (migration 0002):
+- `asset_categories` — Tenant-configurable categories with per-category feature toggles (enableSpecifications, enableWeightSpecs, enableMassScheme, enableEngineHours, enableCapacityFields, enableRegistration, industryType, sortOrder)
+- `asset_subcategories` — Subcategories within categories (e.g., "Prime Mover" under "Truck"), with vehicle configuration and default volume
+- `assets` — Full asset records: core identification (auto-generated asset number YYYY-XXXX), registration, make/model/VIN, weight specs (tare/GVM/GCM), body configuration, equipment fitted (JSONB), capacity, engine hours, odometer, ownership (tenant vs contractor), operational status
+- `default_pairings` — Truck-trailer default pairings for scheduling pre-selection
+
+Backend — 2 new route files:
+- `routes/asset-categories.ts` (~480 LOC) — Category CRUD + nested subcategory CRUD (POST/PUT/DELETE under `/:id/subcategories`). Default categories seeded in migration (Trucks, Trailers, Equipment, Tools)
+- `routes/assets.ts` (~620 LOC) — Asset CRUD with search (rego, make, model, VIN), filtering (category, status, ownership, contractor), cursor pagination with joined category/subcategory/contractor names. Status change endpoint. Default pairing management (add/remove pairings with truck/trailer category validation, duplicate detection). Detail endpoint returns category feature toggles and all default pairings.
+
+Frontend — 2 new API hook files:
+- `api/asset-categories.ts` — useAssetCategories, useAssetCategory, useCreateAssetCategory, useUpdateAssetCategory, useDeleteAssetCategory, useCreateSubcategory, useDeleteSubcategory
+- `api/assets.ts` — useAssets, useAsset, useCreateAsset, useUpdateAsset, useUpdateAssetStatus, useDeleteAsset, useCreatePairing, useDeletePairing
+
+Frontend — 3 new pages:
+- Assets list: search, filter by category/status/ownership, status badges, contractor indicators
+- Create asset: dynamic form driven by category feature toggles (weight specs, body config, capacity, engine hours shown/hidden based on selected category), ownership selector with contractor company picker, auto-generated asset number
+- Asset detail/edit: full read-only view with payload capacity calculation, inline edit form, status change dropdown, default pairings management (add/remove trailers via dialog)
+
+Frontend — sidebar updated: Assets link enabled (was "coming soon"), breadcrumbs added
+
+**Business logic implemented:**
+- Category feature toggles control form sections (both create and edit)
+- Auto-generated asset numbers (YYYY-XXXX format)
+- Contractor validation (asset ownership=contractor requires valid contractor company)
+- Category/subcategory reference validation on create
+- Truck-trailer pairing validation (must be correct category types, no duplicates)
+- Payload capacity display (GVM minus tare)
+- Operational status change with audit logging
+- All mutations create audit log entries
+
+**What's deferred (per spec, needs other features first):**
+- Compliance gates (needs SafeSpec integration — doc 12)
+- Asset documents with expiry tracking (needs document management — doc 15)
+- Maintenance schedules and defect management (needs compliance system)
+- Pre-start checklists (needs DriverX — doc 20)
+- Performance and utilisation analytics (needs jobs/dockets — docs 06/08)
+- Volume override with approval workflow
+- Custom fields per category (configurable field sets)
+- Driver assignment tracking (needs scheduling — doc 07)
+- Auto-deallocation on status change (needs scheduling)
+- Registration duplicate detection
+
+**What's next:**
+- Build Materials & Disposal (doc 05) — material types, pricing behaviour, disposal sites. Jobs reference materials.
+- Build the Job System (doc 06) — the core feature, needs assets + materials to exist first
+- Implement granular permission system (doc 18)
+
 ## [0.6.1] — 2026-03-21
 
 ### Port Configuration Fix + Auth Flow + shadcn/ui Update

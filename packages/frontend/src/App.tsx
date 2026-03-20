@@ -19,6 +19,9 @@ import { RegionDetailPage } from "@frontend/pages/regions/detail.js";
 import { EmployeesPage } from "@frontend/pages/employees/index.js";
 import { CreateEmployeePage } from "@frontend/pages/employees/create.js";
 import { EmployeeDetailPage } from "@frontend/pages/employees/detail.js";
+import { AssetsPage } from "@frontend/pages/assets/index.js";
+import { CreateAssetPage } from "@frontend/pages/assets/create.js";
+import { AssetDetailPage } from "@frontend/pages/assets/detail.js";
 
 export function App(): React.JSX.Element {
   return (
@@ -51,6 +54,9 @@ export function App(): React.JSX.Element {
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="employees/new" element={<CreateEmployeePage />} />
         <Route path="employees/:id" element={<EmployeeDetailPage />} />
+        <Route path="assets" element={<AssetsPage />} />
+        <Route path="assets/new" element={<CreateAssetPage />} />
+        <Route path="assets/:id" element={<AssetDetailPage />} />
       </Route>
 
       {/* Default redirect */}

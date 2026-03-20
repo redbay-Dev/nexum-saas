@@ -16,6 +16,9 @@ import {
   DAYSHEET_STATUSES,
   DOCKET_STATUSES,
   ASSET_CATEGORIES,
+  ASSET_STATUSES,
+  ASSET_OWNERSHIP_TYPES,
+  INDUSTRY_TYPES,
   PRICING_BEHAVIOURS,
   ADDRESS_TYPES,
   CONTACT_STATUSES,
@@ -307,6 +310,109 @@ export const docketStatusSchema = z.enum(DOCKET_STATUSES);
 // ── Asset Schemas ──
 
 export const assetCategorySchema = z.enum(ASSET_CATEGORIES);
+export const assetStatusSchema = z.enum(ASSET_STATUSES);
+export const assetOwnershipTypeSchema = z.enum(ASSET_OWNERSHIP_TYPES);
+export const industryTypeSchema = z.enum(INDUSTRY_TYPES);
+
+/** Tenant-configurable asset category with per-category feature toggles. */
+export const createAssetCategorySchema = z.object({
+  name: z.string().min(1).max(100),
+  type: assetCategorySchema,
+  industryType: industryTypeSchema.default("transport"),
+  enableSpecifications: z.boolean().default(true),
+  enableWeightSpecs: z.boolean().default(false),
+  enableMassScheme: z.boolean().default(false),
+  enableEngineHours: z.boolean().default(false),
+  enableCapacityFields: z.boolean().default(false),
+  enableRegistration: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const updateAssetCategorySchema = createAssetCategorySchema.partial();
+
+/** Subcategory within a category — e.g. "Prime Mover" under "Truck". */
+export const createAssetSubcategorySchema = z.object({
+  categoryId: z.uuid(),
+  name: z.string().min(1).max(100),
+  vehicleConfiguration: z.string().max(100).optional(),
+  defaultVolume: z.number().positive().optional(),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const updateAssetSubcategorySchema = createAssetSubcategorySchema
+  .omit({ categoryId: true })
+  .partial();
+
+/** Equipment fitted flags — stored as JSONB on the asset record. */
+export const equipmentFittedSchema = z.object({
+  scales: z.boolean().default(false),
+  mudLocks: z.boolean().default(false),
+  fireExtinguisher: z.boolean().default(false),
+  firstAid: z.boolean().default(false),
+  uhfRadio: z.boolean().default(false),
+  gpsTracking: z.boolean().default(false),
+  isolationSwitch: z.boolean().default(false),
+});
+
+/** Create a new asset record. */
+export const createAssetSchema = z.object({
+  // Core identification
+  assetNumber: z.string().max(50).optional(),
+  categoryId: z.uuid(),
+  subcategoryId: z.uuid().optional(),
+  ownership: assetOwnershipTypeSchema.default("tenant"),
+  contractorCompanyId: z.uuid().optional(),
+  status: assetStatusSchema.default("available"),
+
+  // Registration
+  registrationNumber: z.string().max(20).optional(),
+  registrationState: z.enum(AUSTRALIAN_STATES).optional(),
+  registrationExpiry: z.string().optional(),
+
+  // Make/model
+  make: z.string().max(100).optional(),
+  model: z.string().max(100).optional(),
+  year: z.number().int().min(1900).max(2100).optional(),
+  vin: z.string().max(50).optional(),
+
+  // Weight specs (shown/hidden by category toggles)
+  tareWeight: z.number().positive().optional(),
+  gvm: z.number().positive().optional(),
+  gcm: z.number().positive().optional(),
+  vehicleConfiguration: z.string().max(100).optional(),
+  massScheme: z.string().max(50).optional(),
+
+  // Body configuration
+  bodyMaterial: z.string().max(100).optional(),
+  sideHeight: z.number().positive().optional(),
+  bodyType: z.string().max(100).optional(),
+
+  // Equipment fitted
+  equipmentFitted: equipmentFittedSchema.optional(),
+
+  // Capacity
+  capacity: z.number().positive().optional(),
+  capacityUnit: z.string().max(20).optional(),
+
+  // Tracking
+  engineHours: z.number().min(0).optional(),
+  engineHoursDate: z.string().optional(),
+  odometer: z.number().min(0).optional(),
+  odometerDate: z.string().optional(),
+
+  notes: z.string().optional(),
+});
+
+export const updateAssetSchema = createAssetSchema.partial();
+
+/** Default pairing between a truck and trailer. */
+export const createDefaultPairingSchema = z.object({
+  truckId: z.uuid(),
+  trailerId: z.uuid(),
+  notes: z.string().optional(),
+});
 
 // ── Pricing Schemas ──
 

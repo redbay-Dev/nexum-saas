@@ -59,7 +59,7 @@ const OPERATIONS_NAV: NavItem[] = [
   { to: "/addresses", label: "Addresses", icon: MapPin },
   { to: "/regions", label: "Regions", icon: Globe },
   { to: "/employees", label: "Drivers & Staff", icon: Users },
-  { to: "/assets", label: "Assets", icon: Truck, disabled: true },
+  { to: "/assets", label: "Assets", icon: Truck },
   { to: "/materials", label: "Materials", icon: Package, disabled: true },
 ];
 
@@ -75,6 +75,8 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/regions/new": "Add Region",
   "/employees": "Drivers & Staff",
   "/employees/new": "Add Employee",
+  "/assets": "Assets",
+  "/assets/new": "Add Asset",
 };
 
 function getInitials(email: string): string {
