@@ -30,9 +30,17 @@ export const config = {
     bucket: process.env.STORAGE_BUCKET ?? "nexum-dev",
     region: process.env.STORAGE_REGION ?? "us-east-1",
   },
-  auth: {
-    secret: process.env.BETTER_AUTH_SECRET!,
-    url: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  opshield: {
+    apiUrl: process.env.OPSHIELD_API_URL ?? "http://localhost:3000",
+    authUrl: process.env.OPSHIELD_AUTH_URL ?? "http://localhost:3000/api/auth",
+    jwksUrl:
+      process.env.OPSHIELD_JWKS_URL ??
+      "http://localhost:3000/.well-known/jwks.json",
+    loginUrl:
+      process.env.OPSHIELD_LOGIN_URL ?? "http://localhost:3000/login",
+    webhookSecret: process.env.OPSHIELD_WEBHOOK_SECRET ?? "dev-webhook-secret",
+    apiKey: process.env.OPSHIELD_API_KEY ?? "dev-api-key",
+    productAudience: process.env.PRODUCT_AUDIENCE ?? "nexum",
   },
   smtp: {
     host: process.env.SMTP_HOST ?? "localhost",

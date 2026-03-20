@@ -2,6 +2,53 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.4.0] — 2026-03-20
+
+### OpShield Auth Integration — Remove Embedded Better Auth
+
+**What was built:**
+- Removed embedded Better Auth instance from Nexum entirely
+- Added OpShield JWT/JWKS validation via `jose` library (`lib/opshield-client.ts`)
+- Rewrote `middleware/auth.ts` to validate OpShield JWTs (Bearer token or `opshield_token` cookie)
+- `middleware/tenant.ts` unchanged in logic — still looks up `tenant_users` by user ID, now the ID comes from OpShield
+- Added auth callback route (`/api/v1/auth/callback`) — receives JWT from OpShield login redirect, sets local cookie
+- Added logout route (`/api/v1/auth/logout`) — clears local cookie
+- Added login-url route (`/api/v1/auth/login-url`) — provides OpShield URLs for frontend redirects
+- Added OpShield webhook handler (`/api/webhooks/opshield`) with HMAC-SHA256 signature verification
+- Added `opshield_tenant_id` column to `tenants` table (links to OpShield tenant registry)
+- Added `display_name` and `email` columns to `tenant_users` (cached from OpShield)
+- Deleted `auth.ts`, `routes/onboard.ts`, `db/schema/auth.ts` (Better Auth tables)
+- Removed login, register, and onboard frontend pages (OpShield handles these)
+- Created `auth-error.tsx` page for failed OpShield callbacks
+- `ProtectedRoute` now redirects to OpShield login instead of local `/login`
+- `signOut()` clears local cookie and redirects to OpShield
+- Replaced `better-auth` dependency with `jose` (backend) and removed from frontend
+- Updated `.env.development` with `OPSHIELD_*` env vars
+- Updated all tests to work with new auth flow
+
+**Decisions made:**
+- DEC-158: Extract auth from Nexum — delegate entirely to OpShield per docs/07-AUTH-ARCHITECTURE.md
+
+**All checks passing:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — all passing
+- `pnpm build` — all packages build
+
+**What's STILL MISSING:**
+- OpShield Phase 1 (Better Auth + tenant provisioning) — being built separately
+- Redis-backed entitlements cache (15 min TTL, invalidated by webhooks)
+- `requireModule()` middleware for module-gated routes
+- Webhook handler TODO stubs (module activation, tenant suspension, session revocation)
+- New database migration SQL for public schema changes (opshield_tenant_id, display_name, email columns)
+- Impersonation support (yellow banner, audit log context)
+- Support widget (help button → OpShield support API)
+
+**What's next:**
+- OpShield must be running for Nexum auth to work — test full login flow (OpShield → callback → local session)
+- Implement entitlements cache and `requireModule()` middleware
+- Resume feature development: Contacts + Addresses CRUD (doc 02)
+
 ## [0.3.0] — 2026-03-20
 
 ### OpShield Platform Architecture & Database Reset

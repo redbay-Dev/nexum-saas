@@ -22,7 +22,7 @@
 | **PDF Engine** | Puppeteer 24 + Handlebars 4.7 | Headless Chrome renders HTML/CSS templates to pixel-perfect PDF. Templates use Handlebars variables resolved from database. Async via BullMQ. |
 | **Job Queue** | BullMQ 5 (Redis-backed) | All async work: PDF generation, SMS, email, push notifications, AI requests, Xero sync, compliance checks, report generation, billing runs, system maintenance. Persistent, retryable, monitorable via Bull Board. |
 | **API Documentation** | OpenAPI 3.0 + Scalar (`@scalar/api-reference` 1.49) | Route schemas (Zod) auto-generate OpenAPI spec. Interactive docs at `/api/docs`. |
-| **Authentication** | Better Auth 1.5 | TypeScript-native, self-hosted, all sessions/tokens in PostgreSQL. No external auth vendor. No data leaving Australian infrastructure. |
+| **Authentication** | OpShield (JWT/JWKS via `jose` 6) | Auth delegated to OpShield platform. Nexum validates JWTs locally against OpShield's JWKS endpoint. No local auth tables — user identity comes from OpShield. All data stays in Australian infrastructure (OpShield is self-hosted). |
 | **Real-time** | WebSocket (via `@fastify/websocket` 11) + Redis pub/sub | WebSocket for browser push. Redis pub/sub for scaling across multiple server instances. |
 
 ## Monorepo Structure
@@ -125,28 +125,28 @@ Scaling triggers:
 
 ## Authentication & Security
 
-### Better Auth
+### OpShield Auth (Delegated)
 
-Self-hosted, TypeScript-native authentication:
-- Sessions stored in PostgreSQL (public schema)
-- Cookie-based session caching (5-minute TTL) reduces DB lookups
-- Configurable session expiry (default 7 days)
-- Immediate invalidation on logout
-- Password hashing via bcrypt
+Authentication is delegated to OpShield (see `docs/24-OPSHIELD-PLATFORM.md` and `docs/07-AUTH-ARCHITECTURE.md` in OpShield repo):
+- OpShield runs the single Better Auth 1.5 instance for the entire Redbay platform
+- Nexum validates OpShield-issued JWTs locally via JWKS endpoint (`jose` library)
+- Local session cookie (`opshield_token`) set after JWT validation, 7-day TTL
+- No auth tables in Nexum's database — user identity comes from OpShield
+- Login/signup/password-reset all redirect to OpShield
 
 ### Authentication Features
 
-- **Email + password** — Standard login for all users
-- **2FA — TOTP** — Google Authenticator, Authy compatible. Recommended primary 2FA.
-- **2FA — SMS OTP** — Fallback for users who can't use authenticator apps. Via SMS provider.
+- **Email + password** — Handled by OpShield
+- **2FA — TOTP** — Mandatory for all users, with 30-day device trust. Handled by OpShield.
+- **Microsoft SSO** — Per-tenant Azure AD integration. Handled by OpShield.
 - **Biometric** — DriverX only (fingerprint/face via device)
-- **Magic links** — Optional for portal users (passwordless login via email link)
-- **SSO with SafeSpec** — Shared Better Auth instance for tenants subscribed to both products. Single sign-on between Nexum and SafeSpec.
+- **Magic links** — Optional for portal users (passwordless login via email link, via OpShield)
+- **SSO across products** — Single OpShield session works for both Nexum and SafeSpec
 
 ### Role-Based Access
 
-Better Auth manages authentication. Application-level permissions managed by Nexum's permission system (doc 18):
-- User roles stored in tenant schema
+OpShield manages identity (who you are). Nexum manages authorisation (what you can do):
+- User roles stored in `tenant_users` table (public schema)
 - Permission checks on every API endpoint
 - Portal roles (contractor, customer) determine route access
 - Platform admin is a separate role set in the public schema
@@ -181,11 +181,12 @@ Each tenant gets its own PostgreSQL schema (`tenant_{uuid}`):
 ### Public Schema
 
 The `public` schema holds shared data:
-- Tenant registry (tenant ID, name, subscription status, plan, settings)
-- Better Auth tables (users, sessions, accounts)
+- Tenant registry (tenant ID, name, subscription status, plan, settings, OpShield tenant ID)
+- Tenant-user mapping (OpShield user ID → tenant, with role and cached display name/email)
 - Platform admin configuration
-- Billing/subscription data
 - System-wide settings
+
+Note: Auth tables (users, sessions, accounts) live in OpShield's database, not Nexum's.
 
 ### Tenant Lifecycle
 
@@ -213,7 +214,7 @@ All API endpoints under versioned prefix:
 
 ```
 /api/v1/
-  /auth/          # Authentication (Better Auth routes)
+  /auth/          # Auth callback, logout, identity (/me) — login via OpShield redirect
   /jobs/          # Job CRUD and lifecycle
   /scheduling/    # Allocation and scheduling
   /dockets/       # Docket and daysheet management

@@ -1,23 +1,76 @@
 import type { FastifyRequest } from "fastify";
-import { auth } from "../auth.js";
+import {
+  validateToken,
+  extractBearerToken,
+  type OpShieldTokenPayload,
+} from "../lib/opshield-client.js";
 
 /**
- * Extract the authenticated session from a Fastify request.
- * Uses Better Auth's session API to verify the cookie/token.
- *
- * Returns the session object if authenticated, null otherwise.
+ * Session info extracted from an OpShield JWT.
+ * Contains the user identity and their tenant memberships.
  */
-export async function getSession(request: FastifyRequest): ReturnType<typeof auth.api.getSession> {
-  const headers = new Headers();
-  for (const [key, value] of Object.entries(request.headers)) {
-    if (value) {
-      headers.append(key, Array.isArray(value) ? value.join(", ") : value);
+export interface OpShieldSession {
+  userId: string;
+  email: string;
+  name: string;
+  tenantMemberships: Array<{
+    tenantId: string;
+    role: string;
+    products: string[];
+  }>;
+}
+
+/**
+ * Extract and validate the OpShield session from a Fastify request.
+ *
+ * Checks for a Bearer token in the Authorization header, or falls back
+ * to an `opshield_token` cookie. Validates the JWT against OpShield's
+ * JWKS endpoint (cached, stateless).
+ *
+ * Returns the session if valid, null otherwise.
+ */
+export async function getSession(
+  request: FastifyRequest,
+): Promise<OpShieldSession | null> {
+  // Try Authorization header first, then cookie
+  const token =
+    extractBearerToken(request.headers.authorization) ??
+    extractTokenFromCookie(request.headers.cookie);
+
+  if (!token) return null;
+
+  try {
+    const payload: OpShieldTokenPayload = await validateToken(token);
+
+    return {
+      userId: payload.sub,
+      email: payload.email,
+      name: payload.name,
+      tenantMemberships: payload.tenant_memberships.map((m) => ({
+        tenantId: m.tenant_id,
+        role: m.role,
+        products: m.products,
+      })),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extract the opshield_token from a cookie header string.
+ */
+function extractTokenFromCookie(
+  cookieHeader: string | undefined,
+): string | null {
+  if (!cookieHeader) return null;
+
+  const cookies = cookieHeader.split(";").map((c) => c.trim());
+  for (const cookie of cookies) {
+    const [name, ...rest] = cookie.split("=");
+    if (name === "opshield_token") {
+      return rest.join("=") || null;
     }
   }
-
-  const session = await auth.api.getSession({
-    headers,
-  });
-
-  return session;
+  return null;
 }

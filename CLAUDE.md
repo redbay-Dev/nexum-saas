@@ -14,7 +14,7 @@
 - **Validation**: Zod 4 (shared frontend/backend, feeds OpenAPI generation via fastify-type-provider-zod v6)
 - **PDF Engine**: Puppeteer 24 + Handlebars 4.7 on dedicated service
 - **Job Queue**: BullMQ 5 (Redis 7-backed)
-- **Auth**: Better Auth 1.5 (self-hosted, TypeScript-native)
+- **Auth**: Delegated to OpShield (JWT/JWKS via `jose` 6 — no local auth instance)
 - **Real-time**: WebSocket (@fastify/websocket 11) + Redis pub/sub
 - **Monorepo**: pnpm 10 workspaces + Turborepo 2.8
 - **Hosting**: DigitalOcean exclusively (Sydney region, Australian data residency)
@@ -61,7 +61,7 @@ nexum/
 
 ## OpShield Platform
 - **Path**: `/home/redbay/OpShield` (sibling directory: `../OpShield/`)
-- **What**: Central platform layer — owns auth (Better Auth SSO), tenant provisioning, billing (Stripe), public website, platform admin
+- **What**: Central platform layer — owns auth (Better Auth SSO instance), tenant provisioning, billing (Stripe), public website, platform admin
 - **Relationship**: OpShield provisions tenants and manages subscriptions. Nexum delegates auth to OpShield. OpShield does NOT contain any business logic or user management.
 - **Architecture doc**: `docs/24-OPSHIELD-PLATFORM.md` (exists in all three repos)
 - **Key rule**: Nexum works independently — it just needs an auth endpoint. OpShield is invisible to end users.

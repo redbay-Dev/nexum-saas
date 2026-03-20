@@ -12,7 +12,7 @@ Nexum uses Drizzle ORM 0.45 with PostgreSQL 15, schema-per-tenant multi-tenancy,
 
 ### How It Works
 - Each tenant gets their own PostgreSQL schema: `tenant_{uuid}`
-- The `public` schema holds shared data: tenant registry, Better Auth tables, billing, system config
+- The `public` schema holds shared data: tenant registry, tenant-user mapping, platform admin, system config
 - Every query is scoped to the correct tenant schema via middleware
 - Cross-tenant access is architecturally impossible at the ORM layer
 
@@ -53,8 +53,8 @@ const baseColumns = {
 
 ### Public Schema Tables
 ```typescript
-// Tenant registry, Better Auth tables, platform admin, billing
-// These are in the default public schema
+// Tenant registry, tenant-user mapping, platform admin
+// These are in the default public schema (auth tables are in OpShield)
 export const tenants = pgTable('tenants', {
   ...baseColumns,
   name: varchar('name', { length: 255 }).notNull(),

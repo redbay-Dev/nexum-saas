@@ -456,7 +456,7 @@ The following section is the `CLAUDE.md` file that lives at the root of the Nexu
 - **Validation**: Zod 4 (shared frontend/backend, feeds OpenAPI generation via fastify-type-provider-zod v6)
 - **PDF Engine**: Puppeteer 24 + Handlebars 4.7 on dedicated service
 - **Job Queue**: BullMQ 5 (Redis 7-backed)
-- **Auth**: Better Auth 1.5 (self-hosted, TypeScript-native)
+- **Auth**: Delegated to OpShield (JWT/JWKS via `jose` 6 — no local auth instance)
 - **Real-time**: WebSocket (@fastify/websocket 11) + Redis pub/sub
 - **Monorepo**: pnpm 10 workspaces + Turborepo 2.8
 - **Hosting**: DigitalOcean exclusively (Sydney region, Australian data residency)

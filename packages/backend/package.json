@@ -37,7 +37,7 @@
     "@nexum/pdf-templates": "workspace:*",
     "@nexum/shared": "workspace:*",
     "@scalar/api-reference": "^1.49.1",
-    "better-auth": "^1.5.5",
+    "jose": "^6.0.11",
     "bullmq": "^5.71.0",
     "dotenv": "^16.4.0",
     "drizzle-orm": "^0.45.1",

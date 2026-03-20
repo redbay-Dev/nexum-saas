@@ -9,6 +9,7 @@ import { hasPermission } from "@nexum/shared";
 export interface TenantContext {
   userId: string;
   userEmail: string;
+  userName: string;
   tenantId: string;
   schemaName: string;
   role: UserRole;
@@ -17,11 +18,13 @@ export interface TenantContext {
 }
 
 /**
- * Resolve tenant context from the authenticated session.
+ * Resolve tenant context from the OpShield session.
  *
- * Looks up the user's tenant membership (including role), then creates a
- * tenant-scoped Drizzle client. Returns null if user is not authenticated
- * or has no tenant.
+ * 1. Validates the OpShield JWT (via getSession)
+ * 2. Looks up the user's tenant membership in Nexum's tenant_users table
+ * 3. Creates a tenant-scoped Drizzle client
+ *
+ * Returns null if unauthenticated or not a member of any tenant.
  */
 export async function getTenantContext(
   request: FastifyRequest,
@@ -29,30 +32,32 @@ export async function getTenantContext(
   const session = await getSession(request);
   if (!session) return null;
 
+  // Look up user's tenant membership using their OpShield user ID
   const [membership] = await db
     .select()
     .from(tenantUsers)
-    .where(eq(tenantUsers.userId, session.user.id))
+    .where(eq(tenantUsers.userId, session.userId))
     .limit(1);
 
   if (!membership) return null;
 
-  const [tenant] = await db
+  const [tenantRecord] = await db
     .select({ schemaName: tenants.schemaName })
     .from(tenants)
     .where(eq(tenants.id, membership.tenantId))
     .limit(1);
 
-  if (!tenant) return null;
+  if (!tenantRecord) return null;
 
   return {
-    userId: session.user.id,
-    userEmail: session.user.email,
+    userId: session.userId,
+    userEmail: session.email,
+    userName: session.name,
     tenantId: membership.tenantId,
-    schemaName: tenant.schemaName,
+    schemaName: tenantRecord.schemaName,
     role: membership.role as UserRole,
     isOwner: membership.isOwner,
-    tenantDb: getTenantDb(tenant.schemaName),
+    tenantDb: getTenantDb(tenantRecord.schemaName),
   };
 }
 

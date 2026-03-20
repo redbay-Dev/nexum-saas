@@ -2,7 +2,6 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { config } from "../config.js";
 import * as publicSchema from "./schema/public.js";
-import * as authSchema from "./schema/auth.js";
 import * as tenantSchema from "./schema/tenant.js";
 
 /**
@@ -12,7 +11,7 @@ import * as tenantSchema from "./schema/tenant.js";
 const pgClient = postgres(config.database.url, { max: 10 });
 
 export const db = drizzle(pgClient, {
-  schema: { ...publicSchema, ...authSchema },
+  schema: publicSchema,
 });
 
 /**

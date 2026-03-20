@@ -1,15 +1,18 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { config } from "./config.js";
-import { auth } from "./auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { authMeRoutes } from "./routes/auth-me.js";
-import { onboardRoutes } from "./routes/onboard.js";
+import { authCallbackRoutes } from "./routes/auth-callback.js";
 import { companyRoutes } from "./routes/companies.js";
+import { webhookRoutes } from "./routes/webhooks.js";
 
 /**
  * Build the Fastify application instance.
  * Registers all plugins, middleware, and routes.
+ *
+ * Auth is delegated to OpShield — Nexum validates JWTs via JWKS
+ * and manages its own local session cookies.
  */
 export function buildApp(): ReturnType<typeof Fastify> {
   const isDev = config.nodeEnv === "development";
@@ -59,52 +62,10 @@ export function buildApp(): ReturnType<typeof Fastify> {
   // Health check (unauthenticated)
   void app.register(healthRoutes);
 
-  // Better Auth — handle all /api/auth/* routes
-  app.route({
-    method: ["GET", "POST"],
-    url: "/api/auth/*",
-    async handler(request, reply) {
-      const url = new URL(
-        request.url,
-        `${request.protocol}://${request.hostname}`,
-      );
+  // OpShield webhooks (authenticated via HMAC signature, not JWT)
+  void app.register(webhookRoutes, { prefix: "/api/webhooks" });
 
-      const headers = new Headers();
-      for (const [key, value] of Object.entries(request.headers)) {
-        if (value) {
-          headers.append(key, Array.isArray(value) ? value.join(", ") : value);
-        }
-      }
-
-      const req = new Request(url.toString(), {
-        method: request.method,
-        headers,
-        body:
-          request.method !== "GET" && request.body
-            ? JSON.stringify(request.body)
-            : undefined,
-      });
-
-      const response = await auth.handler(req);
-
-      void reply.status(response.status);
-      response.headers.forEach((value, key) => {
-        void reply.header(key, value);
-      });
-
-      const rawBody = await response.text();
-      if (rawBody) {
-        try {
-          return JSON.parse(rawBody) as unknown;
-        } catch {
-          return null;
-        }
-      }
-      return null;
-    },
-  });
-
-  // API v1 routes (tenant-scoped)
+  // API v1 routes
   void app.register(
     async (api) => {
       api.get("/status", async () => ({
@@ -112,8 +73,13 @@ export function buildApp(): ReturnType<typeof Fastify> {
         data: { version: "0.0.0", environment: config.nodeEnv },
       }));
 
+      // Auth routes (callback from OpShield, logout, login URL)
+      void api.register(authCallbackRoutes, { prefix: "/auth" });
+
+      // Auth identity (tenant-scoped)
       void api.register(authMeRoutes, { prefix: "/auth" });
-      void api.register(onboardRoutes, { prefix: "/onboard" });
+
+      // Business routes (tenant-scoped)
       void api.register(companyRoutes, { prefix: "/companies" });
     },
     { prefix: "/api/v1" },

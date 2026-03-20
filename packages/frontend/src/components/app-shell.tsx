@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate, useLocation } from "react-router";
+import { Outlet, NavLink, useLocation } from "react-router";
 import {
   Building2,
   ChevronRight,
@@ -102,7 +102,6 @@ function NavSection({ label, items }: { label: string; items: NavItem[] }): Reac
 
 export function AppShell(): React.JSX.Element {
   const { auth } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
 
   const pageTitle =
@@ -110,8 +109,8 @@ export function AppShell(): React.JSX.Element {
     (location.pathname.startsWith("/companies/") ? "Company Detail" : "Nexum");
 
   async function handleSignOut(): Promise<void> {
+    // signOut() clears the local cookie and redirects to OpShield login
     await signOut();
-    void navigate("/login");
   }
 
   return (

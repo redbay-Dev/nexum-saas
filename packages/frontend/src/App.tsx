@@ -1,9 +1,7 @@
 import { Routes, Route } from "react-router";
 import { ProtectedRoute } from "@frontend/components/protected-route.js";
 import { AppShell } from "@frontend/components/app-shell.js";
-import { LoginPage } from "@frontend/pages/login.js";
-import { RegisterPage } from "@frontend/pages/register.js";
-import { OnboardPage } from "@frontend/pages/onboard.js";
+import { AuthErrorPage } from "@frontend/pages/auth-error.js";
 import { DashboardPage } from "@frontend/pages/dashboard.js";
 import { CompaniesPage } from "@frontend/pages/companies/index.js";
 import { CreateCompanyPage } from "@frontend/pages/companies/create.js";
@@ -12,12 +10,10 @@ import { CompanyDetailPage } from "@frontend/pages/companies/detail.js";
 export function App(): React.JSX.Element {
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/onboard" element={<OnboardPage />} />
+      {/* Auth error page (shown when OpShield callback fails) */}
+      <Route path="/auth-error" element={<AuthErrorPage />} />
 
-      {/* Protected routes with app shell */}
+      {/* All other routes are protected — unauthenticated users redirect to OpShield */}
       <Route
         element={
           <ProtectedRoute>

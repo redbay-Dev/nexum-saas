@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 loadEnv({ path: resolve(process.cwd(), "../..", ".env.development") });
 
 export default defineConfig({
-  schema: ["./src/db/schema/public.ts", "./src/db/schema/auth.ts"],
+  schema: ["./src/db/schema/public.ts"],
   out: "./src/db/migrations/public",
   dialect: "postgresql",
   dbCredentials: {

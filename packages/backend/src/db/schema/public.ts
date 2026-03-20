@@ -15,9 +15,11 @@ import {
  */
 export const tenants = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
+  /** OpShield's tenant UUID — links to OpShield's tenant registry */
+  opshieldTenantId: uuid("opshield_tenant_id").unique(),
   name: varchar("name", { length: 255 }).notNull(),
   schemaName: varchar("schema_name", { length: 63 }).notNull().unique(),
-  status: varchar("status", { length: 20 }).notNull().default("onboarding"),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
   plan: varchar("plan", { length: 50 }).notNull().default("starter"),
   enabledModules: jsonb("enabled_modules").$type<string[]>().default([]),
   billingEmail: varchar("billing_email", { length: 255 }),
@@ -36,12 +38,17 @@ export const tenants = pgTable("tenants", {
  */
 export const tenantUsers = pgTable("tenant_users", {
   id: uuid("id").primaryKey().defaultRandom(),
+  /** OpShield user UUID — identity comes from OpShield, not Nexum */
   userId: text("user_id").notNull(),
   tenantId: uuid("tenant_id")
     .notNull()
     .references(() => tenants.id),
   role: varchar("role", { length: 50 }).notNull().default("read_only"),
   isOwner: boolean("is_owner").notNull().default(false),
+  /** Display name cached from OpShield (denormalised for convenience) */
+  displayName: varchar("display_name", { length: 255 }),
+  /** Email cached from OpShield (denormalised for convenience) */
+  email: varchar("email", { length: 255 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

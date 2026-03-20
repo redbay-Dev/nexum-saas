@@ -1122,4 +1122,11 @@ Every architectural, product, and workflow decision is recorded here with ration
 **Rationale:** Port 3000 is a natural choice for the "first" service (the platform). Frontend port 5170 precedes both SafeSpec and Nexum in the sequence.
 **Alternatives considered:** None — straightforward port assignment.
 
+### DEC-158: Extract auth from Nexum — delegate entirely to OpShield
+**Date:** 2026-03-20
+**Context:** Nexum had an embedded Better Auth instance with its own user/session/account tables. Per the OpShield architecture (docs/07-AUTH-ARCHITECTURE.md, docs/24-OPSHIELD-PLATFORM.md), auth must be centralised in OpShield.
+**Decision:** Remove Better Auth from Nexum entirely. Nexum validates OpShield JWTs via JWKS (using `jose` library). Login/signup/password-reset all redirect to OpShield. Nexum creates a local session cookie after validating the JWT callback.
+**Rationale:** Single source of truth for auth enables SSO across Nexum, SafeSpec, and future products. Eliminates duplicate user tables. Products become stateless auth consumers. Matches the documented migration plan (Phase 4: Cut Over).
+**Alternatives considered:** Dual-auth transition (rejected — no existing users to migrate since DB was reset), keeping Better Auth as a local session store (rejected — unnecessary complexity when a cookie + JWKS validation achieves the same).
+
 ---

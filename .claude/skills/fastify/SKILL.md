@@ -27,7 +27,7 @@ app.setSerializerCompiler(serializerCompiler);
 packages/backend/src/
   server.ts              # Fastify instance creation and plugin registration
   plugins/
-    auth.ts              # Better Auth integration
+    auth.ts              # OpShield JWT/JWKS session validation
     tenant.ts            # Tenant scoping middleware
     permission.ts        # Permission check middleware
     audit.ts             # Audit logging middleware
@@ -165,8 +165,8 @@ app.setErrorHandler((error, request, reply) => {
 
 ### Session-Based (Web App)
 ```typescript
-// Better Auth cookie-based sessions
-// Middleware extracts session from cookie, validates against PostgreSQL
+// OpShield JWT-based sessions
+// Middleware extracts token from cookie/header, validates against OpShield JWKS
 // Sets request.user and request.tenantId
 app.decorateRequest('user', null);
 app.decorateRequest('tenantId', null);

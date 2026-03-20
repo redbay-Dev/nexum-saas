@@ -4,6 +4,7 @@ import type { Permission, UserRole } from "@nexum/shared";
 export interface AuthInfo {
   userId: string;
   email: string;
+  name: string;
   tenantId: string;
   role: UserRole;
   isOwner: boolean;
