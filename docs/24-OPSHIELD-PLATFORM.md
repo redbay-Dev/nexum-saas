@@ -47,8 +47,10 @@ OpShield owns the **single Better Auth instance** that all products trust.
 
 - One user account works across all products
 - SSO — log into OpShield, access any product you're subscribed to
-- Session tokens issued by OpShield, validated by Nexum/SafeSpec
-- 2FA, password reset, email verification — all handled by OpShield
+- JWTs issued by OpShield, validated locally by products via JWKS endpoint (no per-request callback)
+- 2FA (TOTP) mandatory for all users, with 30-day device trust (remembered devices skip 2FA)
+- Microsoft SSO supported — tenants can connect their own Azure AD for company-wide SSO
+- Password reset, email verification — all handled by OpShield
 - User profile (name, email, phone, avatar) lives in OpShield
 
 **How products validate:**
@@ -231,17 +233,166 @@ Do NOT spin up duplicate containers.
 - Revenue analytics
 - Support tools
 
-## What Products Keep
+## Nexum Module Architecture (CRITICAL)
 
-Even with OpShield, each product retains:
+Nexum is modular: **Core is always included**, optional modules are individually purchasable.
+
+### Core (Always Included)
+- Jobs, Business Entities, Scheduling, Dashboard
+
+### Optional Modules (11 total)
+| Module | Monthly Add-On | Notes |
+|--------|---------------|-------|
+| Invoicing | $29/month | Invoice generation, credit notes, AR |
+| RCTI | $19/month | Contractor payments, remittance |
+| Xero Integration | $19/month | Bidirectional accounting sync |
+| Compliance | $29/month | **Requires active SafeSpec subscription** |
+| SMS Messaging | $19/month + usage | Multi-provider messaging |
+| Docket Processing | $19/month | Digital docket capture, approval |
+| Materials Management | $19/month | Material types, pricing, disposal |
+| Map Planning | $19/month | Route planning, geofencing |
+| AI Automation | $29/month + usage | Job parsing, smart suggestions |
+| Reporting & Analytics | $19/month | Advanced reports, dashboards |
+| Portal | $29/month | Contractor/customer web access |
+
+**Optional modules use Core's user allocation** — no separate user counts per module.
+
+### Cross-Product Dependency: Compliance Module
+
+The Nexum `Compliance` module pulls data from SafeSpec. It **cannot be enabled** unless the tenant also has an active SafeSpec subscription (WHS, HVA, or both).
+
+| SafeSpec Module | What Nexum Compliance Shows |
+|----------------|---------------------------|
+| WHS active | Hazard alerts, incident notifications, SWMS status, inspection compliance |
+| HVA active | Driver licence/medical status, fatigue compliance, vehicle registration, CoR |
+| Both active | Full compliance dashboard |
+| Neither | Compliance module disabled in Nexum |
+
+If a tenant cancels SafeSpec, OpShield notifies Nexum → Nexum disables the compliance module and shows: "SafeSpec subscription required for compliance features."
+
+### Module Enforcement Rules (MUST IMPLEMENT)
+
+Enforcement at three layers:
+1. **OpShield (source of truth)** — Tracks which modules each tenant has via `tenant_modules`
+2. **Nexum Backend (security boundary)** — API middleware returns 403 for unsubscribed modules
+3. **Nexum Frontend (UX convenience)** — Hides nav items, shows upgrade prompts
+
+```typescript
+// Example: Nexum route middleware
+const requireModule = (moduleId: Module) => {
+  return async (request, reply) => {
+    const entitlements = await getEntitlements(request.tenantId);
+    const module = entitlements.modules[moduleId];
+    if (!module || module.status !== 'active') {
+      return reply.status(403).send({
+        error: 'MODULE_NOT_SUBSCRIBED',
+        module: moduleId,
+        upgrade_url: `${OPSHIELD_URL}/billing/upgrade?module=${moduleId}`
+      });
+    }
+  };
+};
+
+// Core routes — no module check needed
+app.get('/api/jobs', { preHandler: [requireAuth] }, getJobs);
+
+// Module-gated routes
+app.get('/api/invoices', { preHandler: [requireAuth, requireModule('invoicing')] }, getInvoices);
+app.get('/api/rctis', { preHandler: [requireAuth, requireModule('rcti')] }, getRctis);
+app.get('/api/compliance/status', { preHandler: [requireAuth, requireModule('compliance')] }, getComplianceStatus);
+```
+
+### Pricing (Base + Per-User)
+
+Nexum Core has a base price with included users, then per-user charges for extras.
+Optional modules are flat add-ons that share Core's user allocation.
+
+**Core:** Starter $79/mo (5 users, +$8/extra) → Professional $179/mo (15 users, +$6) → Enterprise (custom)
+**Modules:** Flat monthly add-ons ($19-29/mo each), no separate user count
+
+**Example:** Professional + Invoicing + RCTI + Xero with 20 users = $179 + (5 × $6) + $29 + $19 + $19 = $276/mo
+
+### User Management Boundary
+
+**OpShield tracks how many user seats are purchased. Nexum manages who those users are.**
+
+- OpShield knows: "This tenant has 15 Nexum seats"
+- Nexum knows: "These 15 people are users, with roles: 1 owner, 2 admin, 8 dispatcher, 3 finance, 1 read_only"
+- When inviting a user in Nexum, check entitlements API for remaining seats
+- If at the limit, show: "User limit reached. Upgrade your plan in OpShield."
+- Nexum reports active user counts to OpShield for billing (hourly + on user add/remove)
+
+### Entitlements API
+
+Nexum calls OpShield to check module access and licence limits:
+
+```
+GET {OPSHIELD_API_URL}/api/tenants/:tenantId/entitlements
+
+Response includes per-module status, plan, included_users, max_users.
+Cache in Redis (TTL: 15 min). Invalidated immediately by OpShield webhook.
+```
+
+### OpShield Webhooks Nexum Must Handle
+
+```
+POST /api/webhooks/opshield
+Events:
+  module.activated      → Enable module features
+  module.suspended      → Disable write access, show warning
+  module.cancelled      → Disable all access (hide from nav, 403 on API)
+  module.plan_changed   → Update user limits
+  tenant.suspended      → Read-only mode across everything
+  tenant.reactivated    → Restore full access
+  tenant.deleted        → Begin data retention countdown
+```
+
+### Platform Admin Impersonation
+
+Redbay staff (via OpShield Platform Admin) can impersonate any tenant for support:
+- Nexum must check for impersonation header/session flag
+- Show yellow banner: "⚠️ Impersonating: {company_name} (admin: {admin_email})"
+- Audit log all actions with impersonation context
+- Session auto-expires after 30 minutes
+
+## What Nexum Keeps
+
+Even with OpShield, Nexum retains:
 
 - **Its own database** with tenant schemas
+- **Its own user management** — creates users, assigns roles (owner, admin, dispatcher, finance, compliance, read_only), sets permissions
 - **Its own role/permission system** (OpShield doesn't know what a "dispatcher" is)
-- **Its own business logic** (jobs, pricing, compliance — none of that is in OpShield)
+- **Its own business logic** (jobs, pricing, scheduling — none of that is in OpShield)
 - **Its own frontend** (separate React app, separate domain)
 - **Its own API** (product-specific routes)
 
-OpShield only manages: identity, tenancy, billing, and product lifecycle.
+OpShield manages: identity (who you are), tenancy (which company), billing (what's paid for), module entitlements (what's enabled), platform administration, and support ticketing. Nexum manages: users (who can access), roles (what they can do), and all business logic.
+
+## Support Integration
+
+OpShield is the centralized support hub. Nexum needs a **support widget** (help button) that lets users submit tickets:
+
+- Clicking help opens a simple form: subject, category, description, attachments
+- Submission sends a structured email to `support@redbay.com.au` with headers:
+  - `X-Redbay-Product: nexum`
+  - `X-Redbay-Tenant-Id: {tenantId}`
+  - `X-Redbay-User-Id: {userId}`
+  - `X-Redbay-Category: {category}`
+  - `X-Redbay-Page: {currentPath}`
+- Fallback: POST to `{OPSHIELD_API_URL}/api/support/tickets`
+- Users receive replies via email — they never need to log into OpShield
+- Optional: "My Support Tickets" page that reads from OpShield API
+
+See `/home/redbay/OpShield/docs/06-SUPPORT-SYSTEM.md` for full details.
+
+## Environment Variables for OpShield Integration
+
+```env
+OPSHIELD_API_URL=http://localhost:3000          # dev
+OPSHIELD_AUTH_URL=http://localhost:3000/api/auth
+OPSHIELD_WEBHOOK_SECRET=<shared-secret>
+OPSHIELD_API_KEY=<nexum-api-key>
+```
 
 ## Domain Strategy (Production)
 
@@ -260,6 +411,25 @@ OpShield only manages: identity, tenancy, billing, and product lifecycle.
 
 3. **No business logic in OpShield** — OpShield doesn't know what a job, driver, hazard, or inspection is. It knows tenants, products, subscriptions, and users.
 
-4. **API-only integration between products** — Products never share database access. All communication is via documented APIs with HMAC-signed webhooks.
+4. **No user management in OpShield** — Each product manages its own users, roles, and permissions. OpShield only tracks user **counts** for billing (licence seats used vs purchased).
 
-5. **Products can be sold separately** — The architecture must support a customer buying only Nexum, only SafeSpec, or both. No hidden coupling.
+5. **API-only integration between products** — Products never share database access. All communication is via documented APIs with HMAC-signed webhooks.
+
+6. **Products can be sold separately** — The architecture must support a customer buying only Nexum, only SafeSpec, or both. No hidden coupling.
+
+## Reference
+
+- **Full platform docs:** `/home/redbay/OpShield/docs/`
+  - `00-PROJECT-OVERVIEW.md` — Platform overview
+  - `01-PRODUCT-MODULE-ARCHITECTURE.md` — Module hierarchy, enforcement, sign-up flow
+  - `02-TENANT-PROVISIONING.md` — How tenants are created and schemas provisioned
+  - `03-INTEGRATION-ARCHITECTURE.md` — How products communicate, webhook security
+  - `04-BILLING-PRICING-MODEL.md` — Pricing, Stripe, user licensing
+  - `05-PLATFORM-ADMIN.md` — Redbay staff admin dashboard
+  - `06-SUPPORT-SYSTEM.md` — Centralized support ticketing, email processing
+  - `07-AUTH-ARCHITECTURE.md` — SSO, 2FA, JWT/JWKS, Microsoft SSO, migration plan
+  - `08-NOTIFICATIONS-EMAIL.md` — Platform transactional emails
+  - `09-PLATFORM-API-CONTRACTS.md` — API versioning, shared types, rate limiting
+  - `DECISION-LOG.md` — All architectural decisions (DEC-001 to DEC-018)
+- **SafeSpec copy of this doc:** `/home/redbay/saas-project/docs/24-OPSHIELD-PLATFORM.md`
+- **Nexum ↔ SafeSpec integration:** `docs/SAFESPEC-INTEGRATION-NOTE.md` (this repo)

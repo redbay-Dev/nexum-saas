@@ -62,17 +62,32 @@ nexum/
 ## OpShield Platform
 - **Path**: `/home/redbay/OpShield` (sibling directory: `../OpShield/`)
 - **What**: Central platform layer — owns auth (Better Auth SSO), tenant provisioning, billing (Stripe), public website, platform admin
-- **Relationship**: OpShield provisions tenants and manages subscriptions. Nexum delegates auth to OpShield. OpShield does NOT contain any business logic.
+- **Relationship**: OpShield provisions tenants and manages subscriptions. Nexum delegates auth to OpShield. OpShield does NOT contain any business logic or user management.
 - **Architecture doc**: `docs/24-OPSHIELD-PLATFORM.md` (exists in all three repos)
 - **Key rule**: Nexum works independently — it just needs an auth endpoint. OpShield is invisible to end users.
 - **Ports**: OpShield API 3000, frontend 5170
+- **Full docs**: `/home/redbay/OpShield/docs/` (overview, modules, provisioning, integration, billing, admin)
+
+## Module Architecture (CRITICAL — READ BEFORE ANY FEATURE WORK)
+Nexum is modular. Core is always included, optional modules are individually purchasable:
+- **Core** (always): Jobs, Business Entities, Scheduling, Dashboard
+- **Optional** (11): Invoicing, RCTI, Xero, Compliance, SMS, Dockets, Materials, Map Planning, AI, Reporting, Portal
+- **Compliance module requires active SafeSpec subscription** — if SafeSpec cancelled, compliance features disabled
+- **User management stays in Nexum** — OpShield only tracks user COUNTS for billing (seats used vs purchased)
+- **Pricing**: Core base price + included users + per-user overage. Optional modules are flat add-ons sharing Core's user allocation.
+- **Enforcement**: API middleware must check `requireModule(moduleId)` on every module-gated route. Frontend hides disabled modules.
+- **Entitlements**: Call OpShield `GET /api/tenants/:id/entitlements`, cache in Redis (15 min TTL), invalidate on webhook.
+- See `docs/24-OPSHIELD-PLATFORM.md` for full module mapping, enforcement code, and webhook events.
 
 ## Sister Project: SafeSpec
 - **Path**: `/home/redbay/saas-project` (sibling directory: `../saas-project/`)
-- **What**: Compliance & WHS management SaaS (NHVAS, WHS, mass, fatigue, maintenance, defects, pre-starts)
-- **Relationship**: SafeSpec owns all compliance. Nexum consumes compliance status via API. Both share the same architecture, and `@redbay/compliance-shared` package. Both delegate auth to OpShield.
+- **What**: Compliance & WHS management SaaS — TWO separately purchasable modules:
+  - **WHS Module**: Hazards, incidents, SWMS, inspections, corrective actions
+  - **HVA Module**: Fatigue, mass management, fitness to drive, vehicle registers, CoR
+  - **Fleet Maintenance**: Premium add-on within HVA
+- **Relationship**: SafeSpec owns all compliance. Nexum consumes compliance status via API (only when Compliance module enabled). Both share the same architecture, and `@redbay/compliance-shared` package. Both delegate auth to OpShield.
 - **Integration doc**: `docs/SAFESPEC-INTEGRATION-NOTE.md` (exists in both repos)
-- **Key rule**: SafeSpec works independently of Nexum. The Nexum connection is optional.
+- **Key rule**: SafeSpec works independently of Nexum. The Nexum connection is optional. Signing up to SafeSpec does NOT grant all features — tenant must select WHS, HVA, or both.
 - **Version differences**: Nexum uses newer versions (Zod 4, Tailwind 4, Vite 8, Vitest 4, ESLint 10). See DEC-147 through DEC-153 in DECISION-LOG.md.
 
 ## Critical Rules
