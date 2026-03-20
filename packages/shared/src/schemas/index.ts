@@ -25,6 +25,15 @@ import {
   ENTRY_POINT_STATUSES,
   MODULES,
   AUDIT_ACTIONS,
+  MATERIAL_CATEGORY_TYPES,
+  MATERIAL_SOURCE_TYPES,
+  MATERIAL_MODES,
+  MATERIAL_FLOW_TYPES,
+  MATERIAL_PRICING_BEHAVIOURS,
+  UNITS_OF_MEASURE,
+  MATERIAL_STATUSES,
+  DG_CLASSES,
+  PACKING_GROUPS,
 } from "../constants/index.js";
 
 // ── Base Entity Fields ──
@@ -413,6 +422,152 @@ export const createDefaultPairingSchema = z.object({
   trailerId: z.uuid(),
   notes: z.string().optional(),
 });
+
+// ── Material Schemas ──
+
+export const materialCategoryTypeSchema = z.enum(MATERIAL_CATEGORY_TYPES);
+export const materialSourceTypeSchema = z.enum(MATERIAL_SOURCE_TYPES);
+export const materialModeSchema = z.enum(MATERIAL_MODES);
+export const materialFlowTypeSchema = z.enum(MATERIAL_FLOW_TYPES);
+export const materialPricingBehaviourSchema = z.enum(MATERIAL_PRICING_BEHAVIOURS);
+export const unitOfMeasureSchema = z.enum(UNITS_OF_MEASURE);
+export const materialStatusSchema = z.enum(MATERIAL_STATUSES);
+export const dgClassSchema = z.enum(DG_CLASSES);
+export const packingGroupSchema = z.enum(PACKING_GROUPS);
+
+/** Compliance flags shared across all material source tables. */
+export const materialComplianceSchema = z.object({
+  isHazardous: z.boolean().default(false),
+  isRegulatedWaste: z.boolean().default(false),
+  isDangerousGoods: z.boolean().default(false),
+  requiresTracking: z.boolean().default(false),
+  requiresAuthority: z.boolean().default(false),
+  unNumber: z.string().max(10).optional(),
+  dgClass: dgClassSchema.optional(),
+  packingGroup: packingGroupSchema.optional(),
+  wasteCode: z.string().max(50).optional(),
+  epaCategory: z.string().max(100).optional(),
+});
+
+/** Create a material category (top-level grouping). */
+export const createMaterialCategorySchema = z.object({
+  name: z.string().min(1).max(100),
+  type: materialCategoryTypeSchema,
+  description: z.string().max(500).optional(),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const updateMaterialCategorySchema = createMaterialCategorySchema.partial();
+
+/** Create a material subcategory (e.g. "Brickies Sand" under "Sand"). */
+export const createMaterialSubcategorySchema = z.object({
+  categoryId: z.uuid(),
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  densityFactor: z.number().positive().optional(),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const updateMaterialSubcategorySchema = createMaterialSubcategorySchema
+  .omit({ categoryId: true })
+  .partial();
+
+/** Create a tenant-owned material (own stockpile). */
+export const createTenantMaterialSchema = z.object({
+  name: z.string().min(1).max(255),
+  subcategoryId: z.uuid().optional(),
+  unitOfMeasure: unitOfMeasureSchema,
+  addressId: z.uuid().optional(),
+  description: z.string().max(500).optional(),
+  densityFactor: z.number().positive().optional(),
+  status: materialStatusSchema.default("active"),
+  compliance: materialComplianceSchema.optional(),
+  notes: z.string().optional(),
+});
+
+export const updateTenantMaterialSchema = createTenantMaterialSchema.partial();
+
+/** Create a supplier material (buy-side). */
+export const createSupplierMaterialSchema = z.object({
+  supplierId: z.uuid(),
+  supplierName: z.string().min(1).max(255),
+  name: z.string().min(1).max(255),
+  subcategoryId: z.uuid().optional(),
+  unitOfMeasure: unitOfMeasureSchema,
+  addressId: z.uuid().optional(),
+  supplierProductCode: z.string().max(50).optional(),
+  purchasePrice: z.number().min(0).optional(),
+  minimumOrderQty: z.number().positive().optional(),
+  description: z.string().max(500).optional(),
+  densityFactor: z.number().positive().optional(),
+  status: materialStatusSchema.default("active"),
+  compliance: materialComplianceSchema.optional(),
+  notes: z.string().optional(),
+});
+
+export const updateSupplierMaterialSchema = createSupplierMaterialSchema.partial();
+
+/** Create a customer material (sell-side). */
+export const createCustomerMaterialSchema = z.object({
+  customerId: z.uuid(),
+  customerName: z.string().min(1).max(255),
+  name: z.string().min(1).max(255),
+  subcategoryId: z.uuid().optional(),
+  unitOfMeasure: unitOfMeasureSchema,
+  addressId: z.uuid().optional(),
+  salePrice: z.number().min(0).optional(),
+  description: z.string().max(500).optional(),
+  densityFactor: z.number().positive().optional(),
+  status: materialStatusSchema.default("active"),
+  compliance: materialComplianceSchema.optional(),
+  notes: z.string().optional(),
+});
+
+export const updateCustomerMaterialSchema = createCustomerMaterialSchema.partial();
+
+/** Create a disposal site material (accept/supply). */
+export const createDisposalMaterialSchema = z.object({
+  addressId: z.uuid(),
+  name: z.string().min(1).max(255),
+  subcategoryId: z.uuid().optional(),
+  unitOfMeasure: unitOfMeasureSchema,
+  materialMode: materialModeSchema,
+  tipFee: z.number().min(0).optional(),
+  environmentalLevy: z.number().min(0).optional(),
+  minimumCharge: z.number().min(0).optional(),
+  salePrice: z.number().min(0).optional(),
+  description: z.string().max(500).optional(),
+  densityFactor: z.number().positive().optional(),
+  status: materialStatusSchema.default("active"),
+  compliance: materialComplianceSchema.optional(),
+  notes: z.string().optional(),
+});
+
+export const updateDisposalMaterialSchema = createDisposalMaterialSchema.partial();
+
+/** Disposal site settings (site-level configuration). */
+export const createDisposalSiteSettingsSchema = z.object({
+  addressId: z.uuid(),
+  operatingHours: z.string().max(500).optional(),
+  acceptedMaterials: z.string().max(1000).optional(),
+  rejectedMaterials: z.string().max(1000).optional(),
+  epaLicenceNumber: z.string().max(100).optional(),
+  epaLicenceExpiry: z.string().optional(),
+  wasteCodes: z.string().max(500).optional(),
+  accountTerms: z.string().max(500).optional(),
+  creditLimit: z.number().min(0).optional(),
+  preApprovalRequired: z.boolean().default(false),
+  accountsContactName: z.string().max(255).optional(),
+  accountsContactPhone: z.string().max(20).optional(),
+  accountsContactEmail: z.email().optional(),
+  notes: z.string().optional(),
+});
+
+export const updateDisposalSiteSettingsSchema = createDisposalSiteSettingsSchema
+  .omit({ addressId: true })
+  .partial();
 
 // ── Pricing Schemas ──
 

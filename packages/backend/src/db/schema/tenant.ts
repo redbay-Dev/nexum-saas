@@ -453,6 +453,249 @@ export const defaultPairings = pgTable(
   ],
 );
 
+// ── Material Categories (two-level hierarchy) ──
+
+export const materialCategories = pgTable("material_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 100 }).notNull(),
+  type: varchar("type", { length: 30 }).notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const materialSubcategories = pgTable(
+  "material_subcategories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => materialCategories.id),
+    name: varchar("name", { length: 100 }).notNull(),
+    description: text("description"),
+    densityFactor: numeric("density_factor", { precision: 8, scale: 4 }),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("material_subcategories_category_id_idx").on(table.categoryId),
+  ],
+);
+
+// ── Tenant Materials (own stockpile) ──
+
+export const tenantMaterials = pgTable(
+  "tenant_materials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 255 }).notNull(),
+    subcategoryId: uuid("subcategory_id").references(
+      () => materialSubcategories.id,
+    ),
+    unitOfMeasure: varchar("unit_of_measure", { length: 20 }).notNull(),
+    addressId: uuid("address_id").references(() => addresses.id),
+    description: text("description"),
+    densityFactor: numeric("density_factor", { precision: 8, scale: 4 }),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    compliance: jsonb("compliance").$type<{
+      isHazardous: boolean;
+      isRegulatedWaste: boolean;
+      isDangerousGoods: boolean;
+      requiresTracking: boolean;
+      requiresAuthority: boolean;
+      unNumber?: string;
+      dgClass?: string;
+      packingGroup?: string;
+      wasteCode?: string;
+      epaCategory?: string;
+    }>(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("tenant_materials_subcategory_id_idx").on(table.subcategoryId),
+    index("tenant_materials_address_id_idx").on(table.addressId),
+    index("tenant_materials_status_idx").on(table.status),
+  ],
+);
+
+// ── Supplier Materials (buy-side) ──
+
+export const supplierMaterials = pgTable(
+  "supplier_materials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    supplierId: uuid("supplier_id")
+      .notNull()
+      .references(() => companies.id),
+    supplierName: varchar("supplier_name", { length: 255 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    subcategoryId: uuid("subcategory_id").references(
+      () => materialSubcategories.id,
+    ),
+    unitOfMeasure: varchar("unit_of_measure", { length: 20 }).notNull(),
+    addressId: uuid("address_id").references(() => addresses.id),
+    supplierProductCode: varchar("supplier_product_code", { length: 50 }),
+    purchasePrice: numeric("purchase_price", { precision: 12, scale: 2 }),
+    minimumOrderQty: numeric("minimum_order_qty", { precision: 12, scale: 2 }),
+    description: text("description"),
+    densityFactor: numeric("density_factor", { precision: 8, scale: 4 }),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    compliance: jsonb("compliance").$type<{
+      isHazardous: boolean;
+      isRegulatedWaste: boolean;
+      isDangerousGoods: boolean;
+      requiresTracking: boolean;
+      requiresAuthority: boolean;
+      unNumber?: string;
+      dgClass?: string;
+      packingGroup?: string;
+      wasteCode?: string;
+      epaCategory?: string;
+    }>(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("supplier_materials_supplier_id_idx").on(table.supplierId),
+    index("supplier_materials_subcategory_id_idx").on(table.subcategoryId),
+    index("supplier_materials_address_id_idx").on(table.addressId),
+    index("supplier_materials_status_idx").on(table.status),
+  ],
+);
+
+// ── Customer Materials (sell-side) ──
+
+export const customerMaterials = pgTable(
+  "customer_materials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => companies.id),
+    customerName: varchar("customer_name", { length: 255 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    subcategoryId: uuid("subcategory_id").references(
+      () => materialSubcategories.id,
+    ),
+    unitOfMeasure: varchar("unit_of_measure", { length: 20 }).notNull(),
+    addressId: uuid("address_id").references(() => addresses.id),
+    salePrice: numeric("sale_price", { precision: 12, scale: 2 }),
+    description: text("description"),
+    densityFactor: numeric("density_factor", { precision: 8, scale: 4 }),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    compliance: jsonb("compliance").$type<{
+      isHazardous: boolean;
+      isRegulatedWaste: boolean;
+      isDangerousGoods: boolean;
+      requiresTracking: boolean;
+      requiresAuthority: boolean;
+      unNumber?: string;
+      dgClass?: string;
+      packingGroup?: string;
+      wasteCode?: string;
+      epaCategory?: string;
+    }>(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("customer_materials_customer_id_idx").on(table.customerId),
+    index("customer_materials_subcategory_id_idx").on(table.subcategoryId),
+    index("customer_materials_address_id_idx").on(table.addressId),
+    index("customer_materials_status_idx").on(table.status),
+  ],
+);
+
+// ── Disposal Materials (accept/supply at disposal sites) ──
+
+export const disposalMaterials = pgTable(
+  "disposal_materials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    addressId: uuid("address_id")
+      .notNull()
+      .references(() => addresses.id),
+    name: varchar("name", { length: 255 }).notNull(),
+    subcategoryId: uuid("subcategory_id").references(
+      () => materialSubcategories.id,
+    ),
+    unitOfMeasure: varchar("unit_of_measure", { length: 20 }).notNull(),
+    materialMode: varchar("material_mode", { length: 10 }).notNull(),
+    tipFee: numeric("tip_fee", { precision: 12, scale: 2 }),
+    environmentalLevy: numeric("environmental_levy", { precision: 12, scale: 2 }),
+    minimumCharge: numeric("minimum_charge", { precision: 12, scale: 2 }),
+    salePrice: numeric("sale_price", { precision: 12, scale: 2 }),
+    description: text("description"),
+    densityFactor: numeric("density_factor", { precision: 8, scale: 4 }),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    compliance: jsonb("compliance").$type<{
+      isHazardous: boolean;
+      isRegulatedWaste: boolean;
+      isDangerousGoods: boolean;
+      requiresTracking: boolean;
+      requiresAuthority: boolean;
+      unNumber?: string;
+      dgClass?: string;
+      packingGroup?: string;
+      wasteCode?: string;
+      epaCategory?: string;
+    }>(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("disposal_materials_address_id_idx").on(table.addressId),
+    index("disposal_materials_subcategory_id_idx").on(table.subcategoryId),
+    index("disposal_materials_material_mode_idx").on(table.materialMode),
+    index("disposal_materials_status_idx").on(table.status),
+  ],
+);
+
+// ── Disposal Site Settings ──
+
+export const disposalSiteSettings = pgTable(
+  "disposal_site_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    addressId: uuid("address_id")
+      .notNull()
+      .references(() => addresses.id),
+    operatingHours: text("operating_hours"),
+    acceptedMaterials: text("accepted_materials"),
+    rejectedMaterials: text("rejected_materials"),
+    epaLicenceNumber: varchar("epa_licence_number", { length: 100 }),
+    epaLicenceExpiry: varchar("epa_licence_expiry", { length: 10 }),
+    wasteCodes: text("waste_codes"),
+    accountTerms: text("account_terms"),
+    creditLimit: numeric("credit_limit", { precision: 12, scale: 2 }),
+    preApprovalRequired: boolean("pre_approval_required").notNull().default(false),
+    accountsContactName: varchar("accounts_contact_name", { length: 255 }),
+    accountsContactPhone: varchar("accounts_contact_phone", { length: 20 }),
+    accountsContactEmail: varchar("accounts_contact_email", { length: 255 }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("disposal_site_settings_address_id_idx").on(table.addressId),
+  ],
+);
+
 // ── Roles & Permissions ──
 
 export const roles = pgTable("roles", {

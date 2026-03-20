@@ -60,7 +60,7 @@ const OPERATIONS_NAV: NavItem[] = [
   { to: "/regions", label: "Regions", icon: Globe },
   { to: "/employees", label: "Drivers & Staff", icon: Users },
   { to: "/assets", label: "Assets", icon: Truck },
-  { to: "/materials", label: "Materials", icon: Package, disabled: true },
+  { to: "/materials", label: "Materials", icon: Package },
 ];
 
 const BREADCRUMB_MAP: Record<string, string> = {
@@ -77,6 +77,8 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/employees/new": "Add Employee",
   "/assets": "Assets",
   "/assets/new": "Add Asset",
+  "/materials": "Materials",
+  "/materials/new": "Add Material",
 };
 
 function getInitials(email: string): string {
@@ -132,7 +134,11 @@ export function AppShell(): React.JSX.Element {
             ? "Region Detail"
             : location.pathname.startsWith("/employees/")
               ? "Employee Detail"
-              : "Nexum");
+              : location.pathname.startsWith("/assets/")
+                ? "Asset Detail"
+                : location.pathname.startsWith("/materials/")
+                  ? "Material Detail"
+                  : "Nexum");
 
   async function handleSignOut(): Promise<void> {
     // signOut() clears the local cookie and redirects to OpShield login

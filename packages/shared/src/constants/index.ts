@@ -250,6 +250,96 @@ export const MODULES = [
 
 export type Module = (typeof MODULES)[number];
 
+// ── Material Categories (system-seeded defaults) ──
+export const MATERIAL_CATEGORY_TYPES = [
+  "fill",
+  "soil",
+  "sand",
+  "rock",
+  "aggregate",
+  "road_base",
+  "concrete_demolition",
+  "asphalt",
+  "recycled",
+  "mulch_organic",
+  "hazardous_regulated",
+  "specialty",
+] as const;
+
+export type MaterialCategoryType = (typeof MATERIAL_CATEGORY_TYPES)[number];
+
+// ── Material Source Types ──
+export const MATERIAL_SOURCE_TYPES = [
+  "tenant",
+  "supplier",
+  "customer",
+  "disposal",
+] as const;
+
+export type MaterialSourceType = (typeof MATERIAL_SOURCE_TYPES)[number];
+
+// ── Material Modes (disposal sites) ──
+export const MATERIAL_MODES = [
+  "disposal",
+  "supply",
+] as const;
+
+export type MaterialMode = (typeof MATERIAL_MODES)[number];
+
+// ── Material Flow Types (in jobs) ──
+export const MATERIAL_FLOW_TYPES = [
+  "supply",
+  "disposal",
+  "buyback",
+  "transfer",
+  "delivery",
+] as const;
+
+export type MaterialFlowType = (typeof MATERIAL_FLOW_TYPES)[number];
+
+// ── Material Pricing Behaviours ──
+export const MATERIAL_PRICING_BEHAVIOURS = [
+  "transport_revenue",
+  "material_cost",
+  "material_resale",
+  "tracking_only",
+] as const;
+
+export type MaterialPricingBehaviour = (typeof MATERIAL_PRICING_BEHAVIOURS)[number];
+
+// ── Units of Measure ──
+export const UNITS_OF_MEASURE = [
+  "tonne",
+  "cubic_metre",
+  "load",
+  "hour",
+  "kilometre",
+] as const;
+
+export type UnitOfMeasure = (typeof UNITS_OF_MEASURE)[number];
+
+// ── Material Status ──
+export const MATERIAL_STATUSES = [
+  "active",
+  "inactive",
+] as const;
+
+export type MaterialStatus = (typeof MATERIAL_STATUSES)[number];
+
+// ── DG Classes ──
+export const DG_CLASSES = [
+  "1", "2", "3", "4", "5", "6", "7", "8", "9",
+] as const;
+
+export type DgClass = (typeof DG_CLASSES)[number];
+
+// ── Packing Groups ──
+export const PACKING_GROUPS = [
+  "I", "II", "III",
+] as const;
+
+export type PackingGroup = (typeof PACKING_GROUPS)[number];
+
 // ── Audit Action Types ──
 export const AUDIT_ACTIONS = [
   "CREATE",

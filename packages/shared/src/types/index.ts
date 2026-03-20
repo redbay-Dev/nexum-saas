@@ -34,6 +34,21 @@ import type {
   updateAssetSchema,
   equipmentFittedSchema,
   createDefaultPairingSchema,
+  materialComplianceSchema,
+  createMaterialCategorySchema,
+  updateMaterialCategorySchema,
+  createMaterialSubcategorySchema,
+  updateMaterialSubcategorySchema,
+  createTenantMaterialSchema,
+  updateTenantMaterialSchema,
+  createSupplierMaterialSchema,
+  updateSupplierMaterialSchema,
+  createCustomerMaterialSchema,
+  updateCustomerMaterialSchema,
+  createDisposalMaterialSchema,
+  updateDisposalMaterialSchema,
+  createDisposalSiteSettingsSchema,
+  updateDisposalSiteSettingsSchema,
 } from "../schemas/index.js";
 
 // ── Base Types ──
@@ -116,6 +131,24 @@ export type CreateAssetInput = z.infer<typeof createAssetSchema>;
 export type UpdateAssetInput = z.infer<typeof updateAssetSchema>;
 export type EquipmentFitted = z.infer<typeof equipmentFittedSchema>;
 export type CreateDefaultPairingInput = z.infer<typeof createDefaultPairingSchema>;
+
+// ── Material Types ──
+
+export type MaterialCompliance = z.infer<typeof materialComplianceSchema>;
+export type CreateMaterialCategoryInput = z.infer<typeof createMaterialCategorySchema>;
+export type UpdateMaterialCategoryInput = z.infer<typeof updateMaterialCategorySchema>;
+export type CreateMaterialSubcategoryInput = z.infer<typeof createMaterialSubcategorySchema>;
+export type UpdateMaterialSubcategoryInput = z.infer<typeof updateMaterialSubcategorySchema>;
+export type CreateTenantMaterialInput = z.infer<typeof createTenantMaterialSchema>;
+export type UpdateTenantMaterialInput = z.infer<typeof updateTenantMaterialSchema>;
+export type CreateSupplierMaterialInput = z.infer<typeof createSupplierMaterialSchema>;
+export type UpdateSupplierMaterialInput = z.infer<typeof updateSupplierMaterialSchema>;
+export type CreateCustomerMaterialInput = z.infer<typeof createCustomerMaterialSchema>;
+export type UpdateCustomerMaterialInput = z.infer<typeof updateCustomerMaterialSchema>;
+export type CreateDisposalMaterialInput = z.infer<typeof createDisposalMaterialSchema>;
+export type UpdateDisposalMaterialInput = z.infer<typeof updateDisposalMaterialSchema>;
+export type CreateDisposalSiteSettingsInput = z.infer<typeof createDisposalSiteSettingsSchema>;
+export type UpdateDisposalSiteSettingsInput = z.infer<typeof updateDisposalSiteSettingsSchema>;
 
 // ── Tenant Context (used by middleware) ──
 

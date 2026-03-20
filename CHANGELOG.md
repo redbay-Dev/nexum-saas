@@ -2,6 +2,72 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.8.0] — 2026-03-21
+
+### Materials & Disposal (Doc 05) — Full CRUD Implementation
+
+**What was built:**
+
+Shared package — new constants and schemas:
+- Material category types (12 categories: fill, soil, sand, rock, aggregate, road_base, concrete_demolition, asphalt, recycled, mulch_organic, hazardous_regulated, specialty)
+- Material source types (tenant, supplier, customer, disposal)
+- Material modes (disposal, supply) — disposal sites dual nature
+- Material flow types (supply, disposal, buyback, transfer, delivery) — for job material movement
+- Material pricing behaviours (transport_revenue, material_cost, material_resale, tracking_only)
+- Units of measure (tonne, cubic_metre, load, hour, kilometre)
+- Material compliance schema (hazardous, regulated waste, DG classification with UN number/class/packing group, EPA waste codes)
+- DG classes (1-9) and packing groups (I, II, III)
+- Zod schemas: createMaterialCategorySchema, createMaterialSubcategorySchema, createTenantMaterialSchema, createSupplierMaterialSchema, createCustomerMaterialSchema, createDisposalMaterialSchema, createDisposalSiteSettingsSchema (and all update variants)
+- TypeScript types derived from all schemas
+
+Backend — 7 new DB tables (migration 0003):
+- `material_categories` — Two-level hierarchy top level (12 system-seeded defaults)
+- `material_subcategories` — Subcategories within categories, with density factor
+- `tenant_materials` — Own stockpile materials with compliance JSONB
+- `supplier_materials` — Buy-side: supplier product code, purchase price, min order qty
+- `customer_materials` — Sell-side: customer name, sale price
+- `disposal_materials` — Dual-mode (disposal/supply): tip fee, environmental levy, minimum charge, sale price
+- `disposal_site_settings` — Site-level config: operating hours, EPA licence, waste codes, account terms, pre-approval
+
+Backend — 2 new route files:
+- `routes/material-categories.ts` (~350 LOC) — Category CRUD + nested subcategory CRUD (mirrors asset-categories pattern)
+- `routes/materials.ts` (~850 LOC) — Full CRUD for all 4 source types (tenant/supplier/customer/disposal) with source-specific validation (supplier must be isSupplier company, customer must be isCustomer). Joined queries return category/subcategory/address/company names. Disposal site settings upsert (GET/PUT). Cursor pagination on all list endpoints.
+
+Frontend — 2 new API hook files:
+- `api/material-categories.ts` — useMaterialCategories, useMaterialCategory, useCreateMaterialCategory, useUpdateMaterialCategory, useDeleteMaterialCategory, useCreateMaterialSubcategory, useDeleteMaterialSubcategory
+- `api/materials.ts` — Per-source hooks: useTenantMaterials/useSupplierMaterials/useCustomerMaterials/useDisposalMaterials (list/detail/create/update/delete for each). useDisposalSiteSettings/useUpdateDisposalSiteSettings. Query key factory with source-type namespacing.
+
+Frontend — 3 new pages:
+- Materials list: search, source tab switching (Own Stock / Supplier / Customer / Disposal), per-source columns (supplier shows company, disposal shows mode badge), hazardous/DG badges, unit labels, status badges, edit/delete actions
+- Create material: source type selector (dynamically shows supplier/customer/disposal fields), material category/subcategory cascade, address picker, unit of measure, density factor, source-specific pricing (purchase price, sale price, tip fee, environmental levy, minimum charge), full compliance section (hazardous, DG, regulated waste, EPA tracking)
+- Material detail/edit: read-only view with overview, source-specific pricing, compliance section. Edit mode for name, description, density, and source-specific pricing fields.
+
+Frontend — sidebar updated: Materials link enabled (was "coming soon"), breadcrumbs added for /materials and /materials/new. Asset Detail breadcrumb also fixed.
+
+**Business logic implemented:**
+- Separate tables per source (architecturally correct per spec — different fields, naming, pricing per context)
+- Supplier validation (supplierId must reference isSupplier=true company)
+- Customer validation (customerId must reference isCustomer=true company)
+- Disposal address validation (addressId must exist)
+- Material compliance flags (hazardous, DG, regulated waste, EPA) stored as JSONB
+- Disposal dual nature: material_mode controls pricing (disposal=tip fee+levy+min charge, supply=sale price)
+- Disposal site settings upsert (create or update on PUT)
+- All mutations create audit log entries
+- 12 default material categories seeded in migration
+
+**What's deferred (per spec, needs other features first):**
+- Material-in-job immutable snapshots (needs Job System — doc 06)
+- Flow types and quantity tracking (loaded/delivered/actual) — needs dockets (doc 08)
+- Subcontractor rates per material — needs RCTI system (doc 10)
+- Billing account assignment (customer/third party) — needs invoicing (doc 10)
+- Pricing precedence chain — needs Pricing Engine (doc 09)
+- ~139 default subcategories seeding (categories are seeded, subcategories left for tenant customisation)
+
+**What's next:**
+- Build the Job System (doc 06) — the core feature, needs all entities (companies, employees, assets, materials) to exist
+- Implement granular permission system (doc 18) — needed for proper access control
+- Scheduling (doc 07) — resource allocation
+
 ## [0.7.0] — 2026-03-21
 
 ### Assets & Fleet (Doc 04) — Full CRUD Implementation

@@ -13,6 +13,8 @@ import { employeeRoutes } from "./routes/employees.js";
 import { qualificationTypeRoutes } from "./routes/qualification-types.js";
 import { assetCategoryRoutes } from "./routes/asset-categories.js";
 import { assetRoutes } from "./routes/assets.js";
+import { materialCategoryRoutes } from "./routes/material-categories.js";
+import { materialRoutes } from "./routes/materials.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 
 /**
@@ -101,6 +103,10 @@ export function buildApp(): ReturnType<typeof Fastify> {
         prefix: "/asset-categories",
       });
       void api.register(assetRoutes, { prefix: "/assets" });
+      void api.register(materialCategoryRoutes, {
+        prefix: "/material-categories",
+      });
+      void api.register(materialRoutes, { prefix: "/materials" });
     },
     { prefix: "/api/v1" },
   );
