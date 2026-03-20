@@ -9,6 +9,8 @@ import { contactRoutes } from "./routes/contacts.js";
 import { addressRoutes } from "./routes/addresses.js";
 import { entryPointRoutes } from "./routes/entry-points.js";
 import { regionRoutes } from "./routes/regions.js";
+import { employeeRoutes } from "./routes/employees.js";
+import { qualificationTypeRoutes } from "./routes/qualification-types.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 
 /**
@@ -89,6 +91,10 @@ export function buildApp(): ReturnType<typeof Fastify> {
       void api.register(addressRoutes, { prefix: "/addresses" });
       void api.register(entryPointRoutes, { prefix: "/entry-points" });
       void api.register(regionRoutes, { prefix: "/regions" });
+      void api.register(employeeRoutes, { prefix: "/employees" });
+      void api.register(qualificationTypeRoutes, {
+        prefix: "/qualification-types",
+      });
     },
     { prefix: "/api/v1" },
   );

@@ -15,6 +15,9 @@ import { AddressDetailPage } from "@frontend/pages/addresses/detail.js";
 import { RegionsPage } from "@frontend/pages/regions/index.js";
 import { CreateRegionPage } from "@frontend/pages/regions/create.js";
 import { RegionDetailPage } from "@frontend/pages/regions/detail.js";
+import { EmployeesPage } from "@frontend/pages/employees/index.js";
+import { CreateEmployeePage } from "@frontend/pages/employees/create.js";
+import { EmployeeDetailPage } from "@frontend/pages/employees/detail.js";
 
 export function App(): React.JSX.Element {
   return (
@@ -43,6 +46,9 @@ export function App(): React.JSX.Element {
         <Route path="regions" element={<RegionsPage />} />
         <Route path="regions/new" element={<CreateRegionPage />} />
         <Route path="regions/:id" element={<RegionDetailPage />} />
+        <Route path="employees" element={<EmployeesPage />} />
+        <Route path="employees/new" element={<CreateEmployeePage />} />
+        <Route path="employees/:id" element={<EmployeeDetailPage />} />
       </Route>
     </Routes>
   );

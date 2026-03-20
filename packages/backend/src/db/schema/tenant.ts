@@ -174,6 +174,142 @@ export const regions = pgTable("regions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Employees ──
+
+export const employees = pgTable(
+  "employees",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    firstName: varchar("first_name", { length: 100 }).notNull(),
+    lastName: varchar("last_name", { length: 100 }).notNull(),
+    dateOfBirth: varchar("date_of_birth", { length: 10 }),
+    phone: varchar("phone", { length: 20 }),
+    email: varchar("email", { length: 255 }),
+    homeAddress: text("home_address"),
+    position: varchar("position", { length: 100 }).notNull(),
+    employmentType: varchar("employment_type", { length: 20 }).notNull(),
+    startDate: varchar("start_date", { length: 10 }).notNull(),
+    department: varchar("department", { length: 100 }),
+    isDriver: boolean("is_driver").notNull().default(false),
+    contractorCompanyId: uuid("contractor_company_id").references(
+      () => companies.id,
+    ),
+    emergencyContacts: jsonb("emergency_contacts")
+      .$type<Array<{ name: string; relationship: string; phone: string }>>()
+      .notNull()
+      .default([]),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("employees_status_idx").on(table.status),
+    index("employees_is_driver_idx").on(table.isDriver),
+    index("employees_contractor_company_id_idx").on(
+      table.contractorCompanyId,
+    ),
+  ],
+);
+
+// ── Licences (driver-specific) ──
+
+export const licences = pgTable(
+  "licences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id),
+    licenceClass: varchar("licence_class", { length: 5 }).notNull(),
+    licenceNumber: varchar("licence_number", { length: 50 }).notNull(),
+    stateOfIssue: varchar("state_of_issue", { length: 3 }).notNull(),
+    expiryDate: varchar("expiry_date", { length: 10 }).notNull(),
+    conditions: text("conditions"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("licences_employee_id_idx").on(table.employeeId)],
+);
+
+// ── Medical Certificates (driver-specific) ──
+
+export const medicals = pgTable(
+  "medicals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id),
+    certificateNumber: varchar("certificate_number", { length: 100 }),
+    issuedDate: varchar("issued_date", { length: 10 }).notNull(),
+    expiryDate: varchar("expiry_date", { length: 10 }).notNull(),
+    conditions: text("conditions"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("medicals_employee_id_idx").on(table.employeeId)],
+);
+
+// ── Qualification Types (tenant-configurable) ──
+
+export const qualificationTypes = pgTable("qualification_types", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  hasExpiry: boolean("has_expiry").notNull().default(true),
+  requiresEvidence: boolean("requires_evidence").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ── Qualifications (employee has qualification) ──
+
+export const qualifications = pgTable(
+  "qualifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id),
+    qualificationTypeId: uuid("qualification_type_id")
+      .notNull()
+      .references(() => qualificationTypes.id),
+    referenceNumber: varchar("reference_number", { length: 100 }),
+    stateOfIssue: varchar("state_of_issue", { length: 3 }),
+    issuedDate: varchar("issued_date", { length: 10 }),
+    expiryDate: varchar("expiry_date", { length: 10 }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("qualifications_employee_id_idx").on(table.employeeId),
+    index("qualifications_type_id_idx").on(table.qualificationTypeId),
+  ],
+);
+
 // ── Roles & Permissions ──
 
 export const roles = pgTable("roles", {

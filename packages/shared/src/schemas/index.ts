@@ -7,6 +7,9 @@ import {
   PORTAL_ROLES,
   COMPANY_ROLES,
   COMPANY_STATUSES,
+  EMPLOYEE_STATUSES,
+  EMPLOYMENT_TYPES,
+  LICENCE_CLASSES,
   JOB_STATUSES,
   INVOICE_STATUSES,
   RCTI_STATUSES,
@@ -206,6 +209,80 @@ export const createRegionSchema = z.object({
 });
 
 export const updateRegionSchema = createRegionSchema.partial();
+
+// ── Employee Schemas ──
+
+export const employeeStatusSchema = z.enum(EMPLOYEE_STATUSES);
+export const employmentTypeSchema = z.enum(EMPLOYMENT_TYPES);
+export const licenceClassSchema = z.enum(LICENCE_CLASSES);
+
+export const emergencyContactSchema = z.object({
+  name: z.string().min(1).max(255),
+  relationship: z.string().min(1).max(100),
+  phone: phoneSchema,
+});
+
+export const createEmployeeSchema = z.object({
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  dateOfBirth: z.string().optional(),
+  phone: phoneSchema.optional(),
+  email: z.email().optional(),
+  homeAddress: z.string().max(500).optional(),
+  position: z.string().min(1).max(100),
+  employmentType: employmentTypeSchema,
+  startDate: z.string(),
+  department: z.string().max(100).optional(),
+  isDriver: z.boolean().default(false),
+  contractorCompanyId: z.uuid().optional(),
+  emergencyContacts: z.array(emergencyContactSchema).default([]),
+  status: employeeStatusSchema.default("active"),
+});
+
+export const updateEmployeeSchema = createEmployeeSchema.partial();
+
+export const createLicenceSchema = z.object({
+  employeeId: z.uuid(),
+  licenceClass: licenceClassSchema,
+  licenceNumber: z.string().min(1).max(50),
+  stateOfIssue: z.enum(AUSTRALIAN_STATES),
+  expiryDate: z.string(),
+  conditions: z.string().optional(),
+});
+
+export const updateLicenceSchema = createLicenceSchema.omit({ employeeId: true }).partial();
+
+export const createMedicalSchema = z.object({
+  employeeId: z.uuid(),
+  certificateNumber: z.string().max(100).optional(),
+  issuedDate: z.string(),
+  expiryDate: z.string(),
+  conditions: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const updateMedicalSchema = createMedicalSchema.omit({ employeeId: true }).partial();
+
+export const createQualificationTypeSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+  hasExpiry: z.boolean().default(true),
+  requiresEvidence: z.boolean().default(true),
+});
+
+export const updateQualificationTypeSchema = createQualificationTypeSchema.partial();
+
+export const createQualificationSchema = z.object({
+  employeeId: z.uuid(),
+  qualificationTypeId: z.uuid(),
+  referenceNumber: z.string().max(100).optional(),
+  stateOfIssue: z.enum(AUSTRALIAN_STATES).optional(),
+  issuedDate: z.string().optional(),
+  expiryDate: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const updateQualificationSchema = createQualificationSchema.omit({ employeeId: true, qualificationTypeId: true }).partial();
 
 // ── Job Schemas ──
 

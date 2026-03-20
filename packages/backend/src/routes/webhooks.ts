@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { verifyWebhookSignature } from "../lib/opshield-client.js";
 import { redis } from "../lib/redis.js";
 import { db } from "../db/client.js";
-import { tenants } from "../db/schema/public.js";
+import { tenants, tenantUsers } from "../db/schema/public.js";
+import { provisionTenantSchema } from "../db/provision-tenant.js";
 
 /**
  * Webhook event shape from OpShield.
@@ -193,6 +194,160 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
               "session.revoked event missing userId in data",
             );
           }
+          break;
+        }
+
+        case "tenant.created": {
+          const tenantName =
+            typeof payload.data["name"] === "string"
+              ? payload.data["name"]
+              : "Unnamed";
+          const plan =
+            typeof payload.data["plan"] === "string"
+              ? payload.data["plan"]
+              : "starter";
+          const enabledModules = Array.isArray(payload.data["modules"])
+            ? (payload.data["modules"] as string[])
+            : [];
+          const ownerUserId =
+            typeof payload.data["ownerUserId"] === "string"
+              ? payload.data["ownerUserId"]
+              : null;
+          const ownerEmail =
+            typeof payload.data["ownerEmail"] === "string"
+              ? payload.data["ownerEmail"]
+              : null;
+          const ownerName =
+            typeof payload.data["ownerName"] === "string"
+              ? payload.data["ownerName"]
+              : null;
+
+          // Create local tenant record
+          const tenantId = crypto.randomUUID();
+          const schemaName = `tenant_${tenantId}`;
+
+          await db.insert(tenants).values({
+            id: tenantId,
+            opshieldTenantId: payload.tenantId,
+            name: tenantName,
+            schemaName,
+            status: "active",
+            plan,
+            enabledModules,
+          });
+
+          // Provision the tenant schema (creates tables)
+          await provisionTenantSchema(schemaName);
+
+          // Create owner user mapping if provided
+          if (ownerUserId) {
+            await db.insert(tenantUsers).values({
+              userId: ownerUserId,
+              tenantId,
+              role: "owner",
+              isOwner: true,
+              displayName: ownerName,
+              email: ownerEmail,
+            });
+          }
+
+          request.log.info(
+            { tenantId, opshieldTenantId: payload.tenantId, schemaName },
+            "Tenant created and schema provisioned",
+          );
+          break;
+        }
+
+        case "tenant.user_added": {
+          const userId =
+            typeof payload.data["userId"] === "string"
+              ? payload.data["userId"]
+              : null;
+          const userEmail =
+            typeof payload.data["email"] === "string"
+              ? payload.data["email"]
+              : null;
+          const userName =
+            typeof payload.data["name"] === "string"
+              ? payload.data["name"]
+              : null;
+          const userRole =
+            typeof payload.data["role"] === "string"
+              ? payload.data["role"]
+              : "read_only";
+
+          if (!userId) {
+            request.log.warn(
+              { tenantId: payload.tenantId },
+              "tenant.user_added missing userId",
+            );
+            break;
+          }
+
+          const localTenant = await findTenantByOpshieldId(payload.tenantId);
+          if (!localTenant) {
+            request.log.warn(
+              { opshieldTenantId: payload.tenantId },
+              "tenant.user_added for unknown tenant",
+            );
+            break;
+          }
+
+          await db.insert(tenantUsers).values({
+            userId,
+            tenantId: localTenant.id,
+            role: userRole,
+            isOwner: false,
+            displayName: userName,
+            email: userEmail,
+          });
+
+          request.log.info(
+            { userId, tenantId: localTenant.id },
+            "User added to tenant",
+          );
+          break;
+        }
+
+        case "tenant.user_removed": {
+          const removedUserId =
+            typeof payload.data["userId"] === "string"
+              ? payload.data["userId"]
+              : null;
+
+          if (!removedUserId) {
+            request.log.warn(
+              { tenantId: payload.tenantId },
+              "tenant.user_removed missing userId",
+            );
+            break;
+          }
+
+          const removeTenant = await findTenantByOpshieldId(payload.tenantId);
+          if (!removeTenant) {
+            request.log.warn(
+              { opshieldTenantId: payload.tenantId },
+              "tenant.user_removed for unknown tenant",
+            );
+            break;
+          }
+
+          await db
+            .delete(tenantUsers)
+            .where(eq(tenantUsers.userId, removedUserId));
+
+          // Also revoke their session
+          await redis.set(
+            sessionRevokedKey(removedUserId),
+            "1",
+            "EX",
+            86400,
+          );
+
+          request.log.info(
+            { userId: removedUserId, tenantId: removeTenant.id },
+            "User removed from tenant",
+          );
           break;
         }
 

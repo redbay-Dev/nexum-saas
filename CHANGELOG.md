@@ -2,6 +2,71 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.6.0] — 2026-03-20
+
+### Drivers & Employees (Doc 03) + OpShield Integration Completion
+
+**What was built:**
+
+Backend — 5 new DB tables (employees, licences, medicals, qualification_types, qualifications):
+- `employees` — Full employee records: personal details, employment type (full-time/part-time/casual/salary/wages), position, department, emergency contacts, driver flag, contractor company link, status lifecycle, soft delete
+- `licences` — Driver licence records: class (C/LR/MR/HR/HC/MC), number, state of issue, expiry, conditions
+- `medicals` — Medical certificates: certificate number, issued/expiry dates, conditions, notes
+- `qualification_types` — Tenant-configurable qualification definitions: name, has expiry, requires evidence
+- `qualifications` — Employee qualification records: type link, reference number, state, issued/expiry dates
+
+Backend — 2 new route files:
+- `routes/employees.ts` (~750 LOC) — Full CRUD with search, filtering by status/isDriver/contractor. GET detail includes licences, medicals, qualifications, and computed compliance status (compliant/expiring_soon/non_compliant). Nested CRUD for licences, medicals, qualifications under `/:employeeId/`.
+- `routes/qualification-types.ts` (~200 LOC) — Tenant-configurable qualification type CRUD
+
+Backend — `requireModule()` middleware (`middleware/modules.ts`):
+- Fetches entitlements from OpShield API with Redis cache (15 min TTL)
+- Falls back to local `tenants.enabledModules` if OpShield is unreachable
+- User-friendly error messages (e.g. "Invoicing is not included in your current plan")
+
+Backend — Webhook handlers (3 new events in `routes/webhooks.ts`):
+- `tenant.created` — Creates local tenant record, provisions tenant schema, maps owner user
+- `tenant.user_added` — Creates tenant_users mapping for new users
+- `tenant.user_removed` — Deletes user mapping, revokes session
+
+Frontend — 3 new pages:
+- Employees list: search, filter by type (drivers/non-drivers) and status, role badges, contractor indicators
+- Create employee: full form with personal details, employment details, driver toggle, inline emergency contacts
+- Employee detail/edit: edit all fields + inline management of licences (add/delete), medical certificates (add/delete), and qualifications (add/delete with type selector)
+
+Frontend — 2 new API hook files:
+- `api/employees.ts` — useEmployees, useEmployee, useCreateEmployee, useUpdateEmployee, useDeleteEmployee, useCreateLicence, useDeleteLicence, useCreateMedical, useDeleteMedical, useCreateQualification, useDeleteQualification
+- `api/qualification-types.ts` — useQualificationTypes, useCreateQualificationType
+
+Shared package:
+- Added `EMPLOYEE_STATUSES`, `EMPLOYMENT_TYPES`, `LICENCE_CLASSES` constants
+- Added Zod schemas: createEmployeeSchema, updateEmployeeSchema, emergencyContactSchema, createLicenceSchema, updateLicenceSchema, createMedicalSchema, updateMedicalSchema, createQualificationTypeSchema, updateQualificationTypeSchema, createQualificationSchema, updateQualificationSchema
+- Added corresponding TypeScript types
+
+Navigation:
+- Sidebar: "Drivers & Staff" nav item (was disabled placeholder)
+- Router: /employees, /employees/new, /employees/:id routes
+- Breadcrumbs: all employee pages
+
+Database migration generated: `0001_dusty_next_avengers.sql` (5 new tables with indexes and FK constraints)
+
+**All checks passing:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — 24 tests across 6 files, all passing
+- `pnpm build` — all packages build (chunk size warning noted, not blocking)
+
+**What's STILL MISSING from doc 03:**
+- Timesheets (depends on Jobs — doc 06 — and DriverX — doc 20)
+- Employee onboarding workflows (configurable checklists per role)
+- Vehicle qualifications (depends on Assets/Fleet — doc 04)
+- Document upload for evidence (depends on Documents — doc 15)
+
+**What's next:**
+- Assets/Fleet (doc 04) — vehicle register, categories, subcategories, default pairings, status tracking
+- Materials/Disposal (doc 05) — material types, disposal sites
+- Jobs (doc 06) — the core feature that ties everything together
+
 ## [0.5.0] — 2026-03-20
 
 ### Contacts, Addresses, Entry Points, Regions — Complete Doc 02 (Business Entities)

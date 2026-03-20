@@ -8,6 +8,13 @@
       "when": 1773949971430,
       "tag": "0000_brave_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773978024006,
+      "tag": "0001_dusty_next_avengers",
+      "breakpoints": true
     }
   ]
 }

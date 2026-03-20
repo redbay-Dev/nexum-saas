@@ -15,6 +15,17 @@ import type {
   updateAddressSchema,
   createEntryPointSchema,
   createRegionSchema,
+  createEmployeeSchema,
+  updateEmployeeSchema,
+  createLicenceSchema,
+  updateLicenceSchema,
+  createMedicalSchema,
+  updateMedicalSchema,
+  createQualificationTypeSchema,
+  updateQualificationTypeSchema,
+  createQualificationSchema,
+  updateQualificationSchema,
+  emergencyContactSchema,
 } from "../schemas/index.js";
 
 // ── Base Types ──
@@ -72,6 +83,20 @@ export type CreateEntryPointInput = z.infer<typeof createEntryPointSchema>;
 // ── Region Types ──
 
 export type CreateRegionInput = z.infer<typeof createRegionSchema>;
+
+// ── Employee Types ──
+
+export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
+export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
+export type EmergencyContact = z.infer<typeof emergencyContactSchema>;
+export type CreateLicenceInput = z.infer<typeof createLicenceSchema>;
+export type UpdateLicenceInput = z.infer<typeof updateLicenceSchema>;
+export type CreateMedicalInput = z.infer<typeof createMedicalSchema>;
+export type UpdateMedicalInput = z.infer<typeof updateMedicalSchema>;
+export type CreateQualificationTypeInput = z.infer<typeof createQualificationTypeSchema>;
+export type UpdateQualificationTypeInput = z.infer<typeof updateQualificationTypeSchema>;
+export type CreateQualificationInput = z.infer<typeof createQualificationSchema>;
+export type UpdateQualificationInput = z.infer<typeof updateQualificationSchema>;
 
 // ── Tenant Context (used by middleware) ──
 

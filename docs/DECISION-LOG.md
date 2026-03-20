@@ -1143,4 +1143,25 @@ Every architectural, product, and workflow decision is recorded here with ration
 **Rationale:** Entry points are always managed in the context of an address — they never exist independently. Users who can manage addresses should inherently be able to manage entry points at those addresses. Keeps the permission model simple.
 **Alternatives considered:** Separate entry point permissions (rejected — adds complexity with no practical benefit since entry points are always address-scoped).
 
+### DEC-161: Employees and drivers in a single table with isDriver flag
+**Date:** 2026-03-20
+**Context:** Doc 03 describes employees and drivers as overlapping categories — a driver is an employee with extra data. Need to decide between separate tables or a unified model.
+**Decision:** Single `employees` table with an `isDriver` boolean. Licences, medicals, and qualifications are separate related tables. Compliance status is computed on read, not stored.
+**Rationale:** Avoids data duplication and complex joins. The isDriver flag controls which sections appear in the UI and which related data is fetched. Contractor drivers are just employees with a `contractorCompanyId` set. The scheduler and job system only need to query `employees WHERE is_driver = true`.
+**Alternatives considered:** Separate `drivers` table inheriting from employees (rejected — adds join complexity for no real benefit). Driver as a role on users (rejected — not all drivers are system users, and not all employees are drivers).
+
+### DEC-162: Tenant-configurable qualification types
+**Date:** 2026-03-20
+**Context:** Doc 03 specifies that qualification types should be fully tenant-configurable (construction cards, operator tickets, DG licences, site inductions, etc.) rather than a fixed set.
+**Decision:** `qualification_types` table defines what qualifications exist for the tenant (name, hasExpiry, requiresEvidence). `qualifications` table records which employees hold which types.
+**Rationale:** Different tenants operate under different regulatory requirements and have different site-specific inductions. A fixed list would need constant updates and wouldn't cover tenant-specific requirements.
+**Alternatives considered:** Predefined enum of qualification types (rejected — too rigid for the diverse tenant base).
+
+### DEC-163: requireModule middleware with OpShield fetch + local fallback
+**Date:** 2026-03-20
+**Context:** Module-gated routes need to check whether the tenant's subscription includes the required module. Entitlements are managed by OpShield but Nexum needs to enforce them.
+**Decision:** `requireModule()` middleware fetches entitlements from OpShield API, caches in Redis (15 min TTL), falls back to local `tenants.enabledModules` if OpShield is unreachable. User-friendly error messages on rejection.
+**Rationale:** OpShield is the source of truth for billing/entitlements, but Nexum shouldn't break if OpShield is temporarily unavailable. The local fallback ensures graceful degradation. Cache invalidation happens via existing webhooks.
+**Alternatives considered:** Only local check (rejected — would drift from OpShield's billing state). Only OpShield check without cache (rejected — too many API calls per request).
+
 ---

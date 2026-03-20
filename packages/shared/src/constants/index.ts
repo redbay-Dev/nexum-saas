@@ -170,6 +170,39 @@ export const ENTRY_POINT_STATUSES = [
 
 export type EntryPointStatus = (typeof ENTRY_POINT_STATUSES)[number];
 
+// ── Employee Status ──
+export const EMPLOYEE_STATUSES = [
+  "active",
+  "on_leave",
+  "suspended",
+  "terminated",
+] as const;
+
+export type EmployeeStatus = (typeof EMPLOYEE_STATUSES)[number];
+
+// ── Employment Type ──
+export const EMPLOYMENT_TYPES = [
+  "full_time",
+  "part_time",
+  "casual",
+  "salary",
+  "wages",
+] as const;
+
+export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
+
+// ── Licence Classes (Australian heavy vehicle) ──
+export const LICENCE_CLASSES = [
+  "C",
+  "LR",
+  "MR",
+  "HR",
+  "HC",
+  "MC",
+] as const;
+
+export type LicenceClass = (typeof LICENCE_CLASSES)[number];
+
 // ── Modules ──
 export const MODULES = [
   "invoicing",
