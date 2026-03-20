@@ -4,6 +4,7 @@ import {
   extractBearerToken,
   type OpShieldTokenPayload,
 } from "../lib/opshield-client.js";
+import { redis } from "../lib/redis.js";
 
 /**
  * Session info extracted from an OpShield JWT.
@@ -41,6 +42,10 @@ export async function getSession(
 
   try {
     const payload: OpShieldTokenPayload = await validateToken(token);
+
+    // Check if this user's sessions have been revoked via OpShield webhook
+    const revoked = await redis.get(`session:revoked:${payload.sub}`);
+    if (revoked) return null;
 
     return {
       userId: payload.sub,

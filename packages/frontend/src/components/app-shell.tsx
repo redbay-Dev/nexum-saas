@@ -2,11 +2,14 @@ import { Outlet, NavLink, useLocation } from "react-router";
 import {
   Building2,
   ChevronRight,
+  Globe,
   LayoutDashboard,
   LogOut,
+  MapPin,
   Package,
   Settings,
   Truck,
+  UserRound,
   Users,
 } from "lucide-react";
 import { signOut } from "@frontend/lib/auth-client.js";
@@ -52,6 +55,9 @@ const CORE_NAV: NavItem[] = [
 
 const OPERATIONS_NAV: NavItem[] = [
   { to: "/companies", label: "Companies", icon: Building2 },
+  { to: "/contacts", label: "Contacts", icon: UserRound },
+  { to: "/addresses", label: "Addresses", icon: MapPin },
+  { to: "/regions", label: "Regions", icon: Globe },
   { to: "/drivers", label: "Drivers", icon: Users, disabled: true },
   { to: "/assets", label: "Assets", icon: Truck, disabled: true },
   { to: "/materials", label: "Materials", icon: Package, disabled: true },
@@ -61,6 +67,12 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/": "Dashboard",
   "/companies": "Companies",
   "/companies/new": "Add Company",
+  "/contacts": "Contacts",
+  "/contacts/new": "Add Contact",
+  "/addresses": "Addresses",
+  "/addresses/new": "Add Address",
+  "/regions": "Regions",
+  "/regions/new": "Add Region",
 };
 
 function getInitials(email: string): string {
@@ -106,7 +118,15 @@ export function AppShell(): React.JSX.Element {
 
   const pageTitle =
     BREADCRUMB_MAP[location.pathname] ??
-    (location.pathname.startsWith("/companies/") ? "Company Detail" : "Nexum");
+    (location.pathname.startsWith("/companies/")
+      ? "Company Detail"
+      : location.pathname.startsWith("/contacts/")
+        ? "Contact Detail"
+        : location.pathname.startsWith("/addresses/")
+          ? "Address Detail"
+          : location.pathname.startsWith("/regions/")
+            ? "Region Detail"
+            : "Nexum");
 
   async function handleSignOut(): Promise<void> {
     // signOut() clears the local cookie and redirects to OpShield login

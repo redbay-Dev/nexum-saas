@@ -1129,4 +1129,18 @@ Every architectural, product, and workflow decision is recorded here with ration
 **Rationale:** Single source of truth for auth enables SSO across Nexum, SafeSpec, and future products. Eliminates duplicate user tables. Products become stateless auth consumers. Matches the documented migration plan (Phase 4: Cut Over).
 **Alternatives considered:** Dual-auth transition (rejected — no existing users to migrate since DB was reset), keeping Better Auth as a local session store (rejected — unnecessary complexity when a cookie + JWKS validation achieves the same).
 
+### DEC-159: Redis client via ioredis with lazy connect
+**Date:** 2026-03-20
+**Context:** OpShield webhooks need idempotency tracking, entitlements caching, and session revocation — all requiring Redis. ioredis was already a dependency but no client module existed.
+**Decision:** Create `lib/redis.ts` with ioredis, lazy connect, `nexum:` key prefix. Connect during server startup, disconnect on graceful shutdown. Auth middleware checks Redis for revoked sessions on every request.
+**Rationale:** Lazy connect prevents startup failures when Redis is temporarily unavailable during development. Key prefix prevents collision with SafeSpec on the shared Redis instance. Session revocation check in auth middleware is the only reliable way to honour OpShield `session.revoked` webhooks since JWTs are stateless.
+**Alternatives considered:** In-memory cache (rejected — doesn't survive server restart, doesn't share across multiple server instances), checking revocation only at webhook handler level (rejected — doesn't block the revoked user from making API calls with their still-valid JWT).
+
+### DEC-160: Entry points managed under address permissions
+**Date:** 2026-03-20
+**Context:** Entry points are sub-entities of addresses (Gate 1, Gate 2 on a job site). Need permission checks but creating separate `manage:entry-points` permissions would bloat the permission system.
+**Decision:** Entry point CRUD uses `manage:addresses` / `view:addresses` permissions. Entry points share the address permission scope.
+**Rationale:** Entry points are always managed in the context of an address — they never exist independently. Users who can manage addresses should inherently be able to manage entry points at those addresses. Keeps the permission model simple.
+**Alternatives considered:** Separate entry point permissions (rejected — adds complexity with no practical benefit since entry points are always address-scoped).
+
 ---

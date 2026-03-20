@@ -196,12 +196,16 @@ export const createEntryPointSchema = z.object({
   status: entryPointStatusSchema.default("active"),
 });
 
+export const updateEntryPointSchema = createEntryPointSchema.partial();
+
 // ── Region Schemas ──
 
 export const createRegionSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
 });
+
+export const updateRegionSchema = createRegionSchema.partial();
 
 // ── Job Schemas ──
 

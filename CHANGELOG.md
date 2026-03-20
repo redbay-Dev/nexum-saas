@@ -2,6 +2,64 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.5.0] — 2026-03-20
+
+### Contacts, Addresses, Entry Points, Regions — Complete Doc 02 (Business Entities)
+
+**What was built:**
+
+Backend — 4 new route files (full CRUD with pagination, search, filtering, audit logging):
+- `routes/contacts.ts` — CRUD with search by name/email/phone, company/address filtering, parent reference validation (contacts must have at least one parent), soft delete
+- `routes/addresses.ts` — CRUD with search by street/suburb/postcode, state/region/type filtering, company linking endpoints (`POST /:id/companies`, `DELETE /:id/companies/:companyId`), detail includes linked companies, site contacts, and entry points
+- `routes/entry-points.ts` — CRUD scoped to addresses, address existence validation, status tracking (active/temporarily_closed/seasonal)
+- `routes/regions.ts` — CRUD with search, active/inactive toggle (`PUT /:id/toggle`), address count on detail
+
+Backend — Infrastructure:
+- `lib/redis.ts` — ioredis client with connect/disconnect lifecycle, shared Redis instance with `nexum:` key prefix
+- `routes/webhooks.ts` — Rewrote all event handlers with real implementations (no TODOs): idempotency via Redis (24h TTL), entitlements cache invalidation, tenant status updates, session revocation
+- `middleware/auth.ts` — Now checks Redis for revoked sessions before accepting JWT
+- `server.ts` — Redis connect/disconnect in startup/shutdown lifecycle
+
+Frontend — 9 new pages:
+- Contacts: list (search, status filter), create (with prefilled companyId/addressId from query params), detail/edit
+- Addresses: list (search), create (with region selector, type toggles, company linking), detail/edit (inline entry point management, linked companies, site contacts)
+- Regions: list (search, activate/deactivate), create, detail/edit
+
+Frontend — 3 new API hook files:
+- `api/contacts.ts` — useContacts, useContact, useCreateContact, useUpdateContact, useDeleteContact
+- `api/addresses.ts` — useAddresses, useAddress, useCreateAddress, useUpdateAddress, useDeleteAddress, useLinkCompanyToAddress, useUnlinkCompanyFromAddress, useCreateEntryPoint, useUpdateEntryPoint, useDeleteEntryPoint
+- `api/regions.ts` — useRegions, useRegion, useCreateRegion, useUpdateRegion, useToggleRegion
+
+Frontend — Navigation:
+- Sidebar updated with Contacts, Addresses, Regions (no longer disabled)
+- Router updated with all new routes
+- Breadcrumbs updated for all new pages
+
+Shared package:
+- Added `updateEntryPointSchema` and `updateRegionSchema`
+
+**All checks passing:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — all passing (24 tests across 6 files)
+- `pnpm build` — all packages build (chunk size warning noted, not blocking)
+
+**What's STILL MISSING from doc 02 (Business Entities):**
+- Customer credit system (credit limit, credit hold/stop, credits on account, credit status visibility)
+- Customer-specific data (default pricing link, invoice preferences, PO requirements)
+- Contractor-specific data (rate cards, RCTI preferences, payment terms, compliance status flag)
+- Contractor self-service document management (portal upload, tenant approval workflow, history tracking, expiry alerts)
+- Contractor account items (extra charges, RCTI deductions, account statement)
+- Supplier-specific data (material catalog link, supply pricing, delivery terms)
+- Onboarding workflows (configurable checklists, ABN lookup API, digital forms, e-signatures, progress tracking)
+- Onboarding status (incomplete/complete/requires attention lifecycle)
+- Company status lifecycle warnings (archiving with outstanding invoices/incomplete jobs)
+
+**What's next:**
+- Drivers/Employees (doc 03) — new DB schema, routes, and UI
+- Assets/Fleet (doc 04) — depends on drivers being in place
+- The role-specific data for doc 02 (credit system, rate cards, RCTI, compliance) depends on later feature modules (Invoicing, Pricing, Compliance) and should be built when those modules are built
+
 ## [0.4.0] — 2026-03-20
 
 ### OpShield Auth Integration — Remove Embedded Better Auth

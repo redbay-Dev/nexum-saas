@@ -5,6 +5,10 @@ import { healthRoutes } from "./routes/health.js";
 import { authMeRoutes } from "./routes/auth-me.js";
 import { authCallbackRoutes } from "./routes/auth-callback.js";
 import { companyRoutes } from "./routes/companies.js";
+import { contactRoutes } from "./routes/contacts.js";
+import { addressRoutes } from "./routes/addresses.js";
+import { entryPointRoutes } from "./routes/entry-points.js";
+import { regionRoutes } from "./routes/regions.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 
 /**
@@ -81,6 +85,10 @@ export function buildApp(): ReturnType<typeof Fastify> {
 
       // Business routes (tenant-scoped)
       void api.register(companyRoutes, { prefix: "/companies" });
+      void api.register(contactRoutes, { prefix: "/contacts" });
+      void api.register(addressRoutes, { prefix: "/addresses" });
+      void api.register(entryPointRoutes, { prefix: "/entry-points" });
+      void api.register(regionRoutes, { prefix: "/regions" });
     },
     { prefix: "/api/v1" },
   );

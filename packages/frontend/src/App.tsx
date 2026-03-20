@@ -6,6 +6,15 @@ import { DashboardPage } from "@frontend/pages/dashboard.js";
 import { CompaniesPage } from "@frontend/pages/companies/index.js";
 import { CreateCompanyPage } from "@frontend/pages/companies/create.js";
 import { CompanyDetailPage } from "@frontend/pages/companies/detail.js";
+import { ContactsPage } from "@frontend/pages/contacts/index.js";
+import { CreateContactPage } from "@frontend/pages/contacts/create.js";
+import { ContactDetailPage } from "@frontend/pages/contacts/detail.js";
+import { AddressesPage } from "@frontend/pages/addresses/index.js";
+import { CreateAddressPage } from "@frontend/pages/addresses/create.js";
+import { AddressDetailPage } from "@frontend/pages/addresses/detail.js";
+import { RegionsPage } from "@frontend/pages/regions/index.js";
+import { CreateRegionPage } from "@frontend/pages/regions/create.js";
+import { RegionDetailPage } from "@frontend/pages/regions/detail.js";
 
 export function App(): React.JSX.Element {
   return (
@@ -25,6 +34,15 @@ export function App(): React.JSX.Element {
         <Route path="companies" element={<CompaniesPage />} />
         <Route path="companies/new" element={<CreateCompanyPage />} />
         <Route path="companies/:id" element={<CompanyDetailPage />} />
+        <Route path="contacts" element={<ContactsPage />} />
+        <Route path="contacts/new" element={<CreateContactPage />} />
+        <Route path="contacts/:id" element={<ContactDetailPage />} />
+        <Route path="addresses" element={<AddressesPage />} />
+        <Route path="addresses/new" element={<CreateAddressPage />} />
+        <Route path="addresses/:id" element={<AddressDetailPage />} />
+        <Route path="regions" element={<RegionsPage />} />
+        <Route path="regions/new" element={<CreateRegionPage />} />
+        <Route path="regions/:id" element={<RegionDetailPage />} />
       </Route>
     </Routes>
   );
