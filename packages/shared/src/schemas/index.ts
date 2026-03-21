@@ -45,6 +45,12 @@ import {
   PACKING_GROUPS,
   JOB_ASSIGNMENT_TYPES,
   JOB_ASSIGNMENT_STATUSES,
+  CREDIT_TYPES,
+  MARKUP_RULE_TYPES,
+  SURCHARGE_TYPES,
+  MARGIN_THRESHOLD_LEVELS,
+  PRICE_CHANGE_SOURCES,
+  QUOTE_PRICING_MODES,
 } from "../constants/index.js";
 
 // ── Base Entity Fields ──
@@ -386,6 +392,8 @@ export const createJobSchema = z.object({
   scheduledEnd: z.string().optional(),
   isMultiDay: z.boolean().default(false),
   minimumChargeHours: z.number().min(0).optional(),
+  overtimeRate: z.number().min(0).optional(),
+  overtimeThresholdHours: z.number().min(0).optional(),
   externalNotes: z.string().optional(),
   internalNotes: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
@@ -446,7 +454,10 @@ export const updateJobAssetRequirementSchema = createJobAssetRequirementSchema.p
 /** Job pricing source schema. */
 export const jobPricingSourceSchema = z.enum(JOB_PRICING_SOURCES);
 
-/** Create a job pricing line. */
+/** Credit type schema. */
+export const creditTypeSchema = z.enum(CREDIT_TYPES);
+
+/** Create a job pricing line. Supports credits (negative amounts) and tracing fields. */
 export const createJobPricingLineSchema = z.object({
   lineType: jobPricingLineTypeSchema,
   partyId: z.uuid().optional(),
@@ -454,15 +465,28 @@ export const createJobPricingLineSchema = z.object({
   category: jobPricingCategorySchema,
   description: z.string().max(500).optional(),
   rateType: jobPricingRateTypeSchema,
-  quantity: z.number().min(0).default(0),
-  unitRate: z.number().min(0).default(0),
-  total: z.number().min(0).default(0),
+  quantity: z.number().default(0),
+  unitRate: z.number().default(0),
+  total: z.number().default(0),
   isLocked: z.boolean().default(false),
   isVariation: z.boolean().default(false),
   variationReason: z.string().max(500).optional(),
   source: jobPricingSourceSchema.default("manual"),
   sourceReferenceId: z.uuid().optional(),
   sortOrder: z.number().int().min(0).default(0),
+  // Credit support
+  creditType: creditTypeSchema.optional(),
+  originalLineId: z.uuid().optional(),
+  // Snapshot & immutability
+  snapshotAt: z.string().optional(),
+  // Rate card tracing
+  usedCustomerPricing: z.boolean().default(false),
+  rateCardEntryId: z.uuid().optional(),
+  // Automation tracing
+  surchargeId: z.uuid().optional(),
+  markupRuleId: z.uuid().optional(),
+  // Margin override
+  marginOverrideReason: z.string().max(500).optional(),
 });
 
 export const updateJobPricingLineSchema = createJobPricingLineSchema.partial();
@@ -811,6 +835,8 @@ export const bulkAllocationSchema = z.object({
 
 // ── Organisation Update Schema ──
 
+export const quotePricingModeSchema = z.enum(QUOTE_PRICING_MODES);
+
 export const updateOrganisationSchema = z.object({
   companyName: z.string().min(1).max(255).optional(),
   tradingName: z.string().max(255).optional(),
@@ -825,6 +851,8 @@ export const updateOrganisationSchema = z.object({
   bankAccountName: z.string().max(255).optional(),
   defaultPaymentTerms: z.number().int().min(0).max(365).optional(),
   timezone: z.string().optional(),
+  quotePricingMode: quotePricingModeSchema.optional(),
+  staleRateThresholdDays: z.number().int().min(1).max(730).optional(),
 });
 
 // ── User Management Schemas ──
@@ -860,3 +888,157 @@ export const auditActionSchema = z.enum(AUDIT_ACTIONS);
 export const idParamSchema = z.object({
   id: z.uuid(),
 });
+
+// ══════════════════════════════════════════════════════════════════
+// ── Pricing Engine Schemas (doc 09) ──
+// ══════════════════════════════════════════════════════════════════
+
+// ── Customer Rate Cards ──
+
+export const createCustomerRateCardSchema = z.object({
+  customerId: z.uuid(),
+  name: z.string().min(1).max(255),
+  effectiveFrom: z.string(),
+  effectiveTo: z.string().optional(),
+  isActive: z.boolean().default(true),
+  notes: z.string().max(1000).optional(),
+});
+
+export const updateCustomerRateCardSchema = createCustomerRateCardSchema
+  .omit({ customerId: true })
+  .partial();
+
+export const createRateCardEntrySchema = z.object({
+  materialSubcategoryId: z.uuid().optional(),
+  category: jobPricingCategorySchema,
+  rateType: jobPricingRateTypeSchema,
+  unitRate: z.number(),
+  description: z.string().max(500).optional(),
+  sortOrder: z.number().int().min(0).default(0),
+});
+
+export const updateRateCardEntrySchema = createRateCardEntrySchema.partial();
+
+export const rateLookupQuerySchema = z.object({
+  customerId: z.uuid(),
+  materialSubcategoryId: z.uuid().optional(),
+  category: jobPricingCategorySchema,
+  rateType: jobPricingRateTypeSchema,
+  jobDate: z.string().optional(),
+});
+
+// ── Markup Rules ──
+
+export const markupRuleTypeSchema = z.enum(MARKUP_RULE_TYPES);
+
+export const createMarkupRuleSchema = z.object({
+  name: z.string().min(1).max(255),
+  type: markupRuleTypeSchema,
+  markupPercentage: z.number().min(0).max(10000).optional(),
+  markupFixedAmount: z.number().min(0).optional(),
+  materialCategoryId: z.uuid().optional(),
+  supplierId: z.uuid().optional(),
+  priority: z.number().int().min(0).default(100),
+  isActive: z.boolean().default(true),
+  notes: z.string().max(1000).optional(),
+});
+
+export const updateMarkupRuleSchema = createMarkupRuleSchema.partial();
+
+export const markupRuleTestSchema = z.object({
+  materialCategoryId: z.uuid().optional(),
+  supplierId: z.uuid().optional(),
+  unitRate: z.number(),
+  quantity: z.number().default(1),
+});
+
+// ── Margin Thresholds ──
+
+export const marginThresholdLevelSchema = z.enum(MARGIN_THRESHOLD_LEVELS);
+
+export const createMarginThresholdSchema = z.object({
+  level: marginThresholdLevelSchema,
+  referenceId: z.uuid().optional(),
+  minimumMarginPercent: z.number().min(0).max(100),
+  warningMarginPercent: z.number().min(0).max(100),
+  requiresApproval: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+});
+
+export const updateMarginThresholdSchema = createMarginThresholdSchema.partial();
+
+// ── Surcharges ──
+
+export const surchargeTypeSchema = z.enum(SURCHARGE_TYPES);
+
+export const createSurchargeSchema = z.object({
+  name: z.string().min(1).max(255),
+  type: surchargeTypeSchema,
+  value: z.number(),
+  appliesTo: z.array(jobPricingCategorySchema).min(1),
+  autoApply: z.boolean().default(true),
+  effectiveFrom: z.string(),
+  effectiveTo: z.string().optional(),
+  isActive: z.boolean().default(true),
+  notes: z.string().max(1000).optional(),
+});
+
+export const updateSurchargeSchema = createSurchargeSchema.partial();
+
+// ── Pricing Templates ──
+
+export const createPricingTemplateSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().max(1000).optional(),
+  isActive: z.boolean().default(true),
+});
+
+export const updatePricingTemplateSchema = createPricingTemplateSchema.partial();
+
+export const createTemplateLineSchema = z.object({
+  lineType: jobPricingLineTypeSchema,
+  category: jobPricingCategorySchema,
+  description: z.string().max(500).optional(),
+  rateType: jobPricingRateTypeSchema,
+  unitRate: z.number().optional(),
+  quantity: z.number().optional(),
+  partyId: z.uuid().optional(),
+  sortOrder: z.number().int().min(0).default(0),
+});
+
+export const updateTemplateLineSchema = createTemplateLineSchema.partial();
+
+export const applyPricingTemplateSchema = z.object({
+  jobId: z.uuid(),
+});
+
+// ── Price History ──
+
+export const priceChangeSourceSchema = z.enum(PRICE_CHANGE_SOURCES);
+
+export const priceHistoryQuerySchema = paginationQuerySchema.extend({
+  entityType: z.string(),
+  entityId: z.uuid(),
+});
+
+export const bulkPriceUpdateSchema = z.object({
+  materialIds: z.array(z.uuid()).min(1).max(500),
+  percentage: z.number().min(-100).max(10000),
+  effectiveDate: z.string(),
+});
+
+export const supplierBulkPriceUpdateSchema = z.object({
+  supplierId: z.uuid(),
+  percentage: z.number().min(-100).max(10000),
+  effectiveDate: z.string(),
+});
+
+// ── Pricing Allocations ──
+
+export const createPricingAllocationSchema = z.object({
+  customerId: z.uuid(),
+  amount: z.number(),
+  percentage: z.number().min(0).max(100),
+});
+
+export const updatePricingAllocationSchema = createPricingAllocationSchema.partial();

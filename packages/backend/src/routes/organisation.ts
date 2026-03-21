@@ -75,6 +75,8 @@ export async function organisationRoutes(app: FastifyInstance): Promise<void> {
       if (input.bankAccountName !== undefined) updateValues.bankAccountName = input.bankAccountName;
       if (input.defaultPaymentTerms !== undefined) updateValues.defaultPaymentTerms = input.defaultPaymentTerms;
       if (input.timezone !== undefined) updateValues.timezone = input.timezone;
+      if (input.quotePricingMode !== undefined) updateValues.quotePricingMode = input.quotePricingMode;
+      if (input.staleRateThresholdDays !== undefined) updateValues.staleRateThresholdDays = input.staleRateThresholdDays;
 
       const [updated] = await ctx.tenantDb
         .update(organisation)

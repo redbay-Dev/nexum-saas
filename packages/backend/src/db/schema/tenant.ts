@@ -28,6 +28,8 @@ export const organisation = pgTable("organisation", {
   bankAccountName: varchar("bank_account_name", { length: 255 }),
   defaultPaymentTerms: integer("default_payment_terms").notNull().default(30),
   timezone: varchar("timezone", { length: 50 }).notNull().default("Australia/Brisbane"),
+  quotePricingMode: varchar("quote_pricing_mode", { length: 30 }).notNull().default("lock_at_quote"),
+  staleRateThresholdDays: integer("stale_rate_threshold_days").notNull().default(180),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -778,6 +780,8 @@ export const jobs = pgTable(
     actualEnd: timestamp("actual_end", { withTimezone: true }),
     isMultiDay: boolean("is_multi_day").notNull().default(false),
     minimumChargeHours: numeric("minimum_charge_hours", { precision: 6, scale: 2 }),
+    overtimeRate: numeric("overtime_rate", { precision: 12, scale: 4 }),
+    overtimeThresholdHours: numeric("overtime_threshold_hours", { precision: 6, scale: 2 }),
     externalNotes: text("external_notes"),
     internalNotes: text("internal_notes"),
     cancellationReason: text("cancellation_reason"),
@@ -918,6 +922,19 @@ export const jobPricingLines = pgTable(
     source: varchar("source", { length: 20 }).notNull().default("manual"),
     sourceReferenceId: uuid("source_reference_id"),
     sortOrder: integer("sort_order").notNull().default(0),
+    // Credit support
+    creditType: varchar("credit_type", { length: 20 }),
+    originalLineId: uuid("original_line_id"),
+    // Snapshot & immutability
+    snapshotAt: timestamp("snapshot_at", { withTimezone: true }),
+    // Rate card tracing
+    usedCustomerPricing: boolean("used_customer_pricing").notNull().default(false),
+    rateCardEntryId: uuid("rate_card_entry_id"),
+    // Automation tracing
+    surchargeId: uuid("surcharge_id"),
+    markupRuleId: uuid("markup_rule_id"),
+    // Margin override
+    marginOverrideReason: text("margin_override_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -988,6 +1005,226 @@ export const jobStatusHistory = pgTable(
   },
   (table) => [
     index("job_status_history_job_id_idx").on(table.jobId),
+  ],
+);
+
+// ══════════════════════════════════════════════════════════════════
+// ── Pricing Engine Tables ──
+// ══════════════════════════════════════════════════════════════════
+
+// ── Customer Rate Cards ──
+
+export const customerRateCards = pgTable(
+  "customer_rate_cards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => companies.id),
+    name: varchar("name", { length: 255 }).notNull(),
+    effectiveFrom: varchar("effective_from", { length: 10 }).notNull(),
+    effectiveTo: varchar("effective_to", { length: 10 }),
+    isActive: boolean("is_active").notNull().default(true),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("customer_rate_cards_customer_id_idx").on(table.customerId),
+  ],
+);
+
+export const customerRateCardEntries = pgTable(
+  "customer_rate_card_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    rateCardId: uuid("rate_card_id")
+      .notNull()
+      .references(() => customerRateCards.id),
+    materialSubcategoryId: uuid("material_subcategory_id").references(() => materialSubcategories.id),
+    category: varchar("category", { length: 20 }).notNull(),
+    rateType: varchar("rate_type", { length: 20 }).notNull(),
+    unitRate: numeric("unit_rate", { precision: 12, scale: 4 }).notNull(),
+    description: text("description"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("rate_card_entries_rate_card_id_idx").on(table.rateCardId),
+    index("rate_card_entries_subcategory_idx").on(table.materialSubcategoryId),
+  ],
+);
+
+// ── Pricing Allocations ──
+
+export const pricingAllocations = pgTable(
+  "pricing_allocations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pricingLineId: uuid("pricing_line_id")
+      .notNull()
+      .references(() => jobPricingLines.id),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => companies.id),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    percentage: numeric("percentage", { precision: 8, scale: 4 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("pricing_allocations_line_id_idx").on(table.pricingLineId),
+    index("pricing_allocations_customer_id_idx").on(table.customerId),
+  ],
+);
+
+// ── Price History ──
+
+export const priceHistory = pgTable(
+  "price_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entityType: varchar("entity_type", { length: 30 }).notNull(),
+    entityId: uuid("entity_id").notNull(),
+    previousPrice: numeric("previous_price", { precision: 12, scale: 4 }),
+    newPrice: numeric("new_price", { precision: 12, scale: 4 }).notNull(),
+    effectiveDate: varchar("effective_date", { length: 10 }).notNull(),
+    changeSource: varchar("change_source", { length: 20 }).notNull(),
+    changedBy: text("changed_by").notNull(),
+    bulkUpdateId: uuid("bulk_update_id"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("price_history_entity_idx").on(table.entityType, table.entityId),
+    index("price_history_effective_date_idx").on(table.effectiveDate),
+    index("price_history_bulk_update_id_idx").on(table.bulkUpdateId),
+  ],
+);
+
+// ── Pricing Templates ──
+
+export const pricingTemplates = pgTable(
+  "pricing_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+);
+
+export const pricingTemplateLines = pgTable(
+  "pricing_template_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    templateId: uuid("template_id")
+      .notNull()
+      .references(() => pricingTemplates.id),
+    lineType: varchar("line_type", { length: 10 }).notNull(),
+    category: varchar("category", { length: 20 }).notNull(),
+    description: text("description"),
+    rateType: varchar("rate_type", { length: 20 }).notNull(),
+    unitRate: numeric("unit_rate", { precision: 12, scale: 4 }),
+    quantity: numeric("quantity", { precision: 12, scale: 4 }),
+    partyId: uuid("party_id").references(() => companies.id),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("pricing_template_lines_template_id_idx").on(table.templateId),
+  ],
+);
+
+// ── Surcharges ──
+
+export const surcharges = pgTable(
+  "surcharges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 255 }).notNull(),
+    type: varchar("type", { length: 20 }).notNull(),
+    value: numeric("value", { precision: 12, scale: 4 }).notNull(),
+    appliesTo: jsonb("applies_to").$type<string[]>().notNull().default([]),
+    autoApply: boolean("auto_apply").notNull().default(true),
+    effectiveFrom: varchar("effective_from", { length: 10 }).notNull(),
+    effectiveTo: varchar("effective_to", { length: 10 }),
+    isActive: boolean("is_active").notNull().default(true),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+);
+
+export const surchargeHistory = pgTable(
+  "surcharge_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    surchargeId: uuid("surcharge_id")
+      .notNull()
+      .references(() => surcharges.id),
+    previousValue: numeric("previous_value", { precision: 12, scale: 4 }).notNull(),
+    newValue: numeric("new_value", { precision: 12, scale: 4 }).notNull(),
+    effectiveDate: varchar("effective_date", { length: 10 }).notNull(),
+    changedBy: text("changed_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("surcharge_history_surcharge_id_idx").on(table.surchargeId),
+  ],
+);
+
+// ── Markup Rules ──
+
+export const markupRules = pgTable(
+  "markup_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 255 }).notNull(),
+    type: varchar("type", { length: 20 }).notNull(),
+    markupPercentage: numeric("markup_percentage", { precision: 8, scale: 4 }),
+    markupFixedAmount: numeric("markup_fixed_amount", { precision: 12, scale: 4 }),
+    materialCategoryId: uuid("material_category_id").references(() => materialCategories.id),
+    supplierId: uuid("supplier_id").references(() => companies.id),
+    priority: integer("priority").notNull().default(100),
+    isActive: boolean("is_active").notNull().default(true),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("markup_rules_priority_idx").on(table.priority),
+    index("markup_rules_material_category_idx").on(table.materialCategoryId),
+    index("markup_rules_supplier_idx").on(table.supplierId),
+  ],
+);
+
+// ── Margin Thresholds ──
+
+export const marginThresholds = pgTable(
+  "margin_thresholds",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    level: varchar("level", { length: 20 }).notNull(),
+    referenceId: uuid("reference_id"),
+    minimumMarginPercent: numeric("minimum_margin_percent", { precision: 8, scale: 4 }).notNull(),
+    warningMarginPercent: numeric("warning_margin_percent", { precision: 8, scale: 4 }).notNull(),
+    requiresApproval: boolean("requires_approval").notNull().default(false),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("margin_thresholds_level_idx").on(table.level, table.referenceId),
   ],
 );
 

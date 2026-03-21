@@ -23,6 +23,12 @@ import { organisationRoutes } from "./routes/organisation.js";
 import { userRoutes } from "./routes/users.js";
 import { auditLogRoutes } from "./routes/audit-log.js";
 import { webhookRoutes } from "./routes/webhooks.js";
+import { rateCardRoutes } from "./routes/rate-cards.js";
+import { markupRuleRoutes } from "./routes/markup-rules.js";
+import { marginThresholdRoutes } from "./routes/margin-thresholds.js";
+import { surchargeRoutes } from "./routes/surcharges.js";
+import { pricingTemplateRoutes } from "./routes/pricing-templates.js";
+import { priceManagementRoutes } from "./routes/price-management.js";
 
 /**
  * Build the Fastify application instance.
@@ -121,6 +127,14 @@ export function buildApp(): ReturnType<typeof Fastify> {
       void api.register(organisationRoutes, { prefix: "/organisation" });
       void api.register(userRoutes, { prefix: "/users" });
       void api.register(auditLogRoutes, { prefix: "/audit-log" });
+
+      // Pricing engine routes
+      void api.register(rateCardRoutes, { prefix: "/rate-cards" });
+      void api.register(markupRuleRoutes, { prefix: "/markup-rules" });
+      void api.register(marginThresholdRoutes, { prefix: "/margin-thresholds" });
+      void api.register(surchargeRoutes, { prefix: "/surcharges" });
+      void api.register(pricingTemplateRoutes, { prefix: "/pricing-templates" });
+      void api.register(priceManagementRoutes, { prefix: "/price-management" });
     },
     { prefix: "/api/v1" },
   );

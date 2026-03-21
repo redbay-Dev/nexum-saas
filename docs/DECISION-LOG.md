@@ -1199,6 +1199,27 @@ Every architectural, product, and workflow decision is recorded here with ration
 **Rationale:** Nexum is not an accounting system. Duplicating tax logic creates maintenance burden and potential discrepancies with the authoritative system (Xero). Tax rules are complex and vary by jurisdiction — let the accounting system own this.
 **Alternatives considered:** Store tax rate for display only (rejected — still creates confusion about source of truth). Keep tax for invoice preview (rejected — invoices are generated in or synced to Xero where tax is applied).
 
+### DEC-170: Pricing engine implemented as 9 independent services
+**Date:** 2026-03-21
+**Context:** The pricing engine (doc 09) has many interacting subsystems — rate lookup, markup rules, margin checks, surcharges, behaviour inference, snapshots, price history, hourly calculations, allocation validation. These could be coupled into the route handlers or separated into independent services.
+**Decision:** Each pricing subsystem is a standalone service file with pure or near-pure functions that can be unit-tested independently. Route handlers compose these services. Services communicate via function calls, not events.
+**Rationale:** Independent services enable unit testing without DB setup (especially for behaviour inference, hourly calculations, allocation validation). Composition in route handlers keeps the control flow visible. Pure functions are easier to debug than event-driven architectures for pricing calculations where order matters.
+**Alternatives considered:** Event-driven pricing pipeline (rejected — harder to debug, overkill for synchronous request-response pricing), monolithic route handlers (rejected — makes unit testing impossible, creates 1000+ line files).
+
+### DEC-171: Surcharge lines are separate invoice items, never baked into base rates
+**Date:** 2026-03-21
+**Context:** Fuel levies and environmental surcharges could be added to the base rate or tracked as separate line items.
+**Decision:** Surcharges are always separate `job_pricing_lines` entries with `source = "surcharge"` and `surcharge_id` tracing. They appear as distinct line items on invoices.
+**Rationale:** Transparency to customers (they see exactly what the surcharge is). Easy to adjust when fuel prices change without touching every rate. Separate reporting on surcharge revenue. Australian transport industry convention is to show surcharges separately.
+**Alternatives considered:** Bake surcharges into base rates (rejected — no transparency, hard to adjust). Percentage markup on invoice total (rejected — surcharges should be per-category, not flat).
+
+### DEC-172: Post-snapshot pricing edits require explicit variation flag
+**Date:** 2026-03-21
+**Context:** Once a job is confirmed (pricing lines snapshotted), mid-job price changes need an audit trail.
+**Decision:** After `snapshot_at` is set on a pricing line, any edit via the PUT endpoint requires `isVariation = true` in the request body. Without it, the API returns `SNAPSHOT_VARIATION_REQUIRED` error. This is enforced at the API level.
+**Rationale:** Prevents accidental price changes on confirmed jobs. Variation lines create a clear audit trail: original pricing + variations = final pricing. The UI can prompt for a variation reason when editing post-confirmation lines.
+**Alternatives considered:** Allow silent edits with diff tracking (rejected — too easy to accidentally change pricing on a live job). Require manager approval (rejected — adds workflow complexity that should be layered on top later, not baked into the base system).
+
 ### DEC-169: Sequential test file execution for shared database
 **Date:** 2026-03-21
 **Context:** Integration test files (jobs, scheduling, admin) all share the same `nexum_test` database and use `cleanupJobs()` to truncate between tests. Running files in parallel with `vitest` caused cross-file data conflicts.

@@ -113,12 +113,15 @@ This is the single most important development rule. Agents that bypass type safe
 
 **If you are tempted to use `any` or `as`:** Stop. Ask yourself what the actual type should be. Define it properly. If you genuinely don't know the shape, use `unknown` and narrow it. If it's from an external library, create a proper type declaration file.
 
-### FINISH WHAT YOU START
-- Do NOT implement thin CRUD slices and call them done
-- Check every bullet point in the spec doc for the feature you're building
-- Depth over breadth — one fully working feature beats five scaffolded ones
-- Changelog honesty — list what's STILL MISSING, not just what was built
-- If you run out of context/time, clearly document exactly what remains unfinished
+### FINISH WHAT YOU START (MOST IMPORTANT RULE)
+- **Do NOT implement thin CRUD slices and call them done.** When building a feature group, implement ALL sub-features with full business logic, workflows, and integrations before moving to the next feature group.
+- **Check every bullet point** in the spec doc for the feature you're building. If the spec says F1.2 has 6 requirements and you've built 2, it's not done.
+- **Depth over breadth.** One fully working, production-ready feature is worth more than five scaffolded ones.
+- **"Implemented" means:** all workflows, validation rules, background jobs, notification triggers, UI polish, and integrations — not just CRUD endpoints. If the spec says "automatic escalation" build the background job, not just a status field. If it says "recurring schedule" build the cron worker that generates instances, not just the schedule CRUD.
+- **Changelog honesty.** When writing changelog entries, list what's STILL MISSING from the spec, not just what was built. Never declare a feature "complete" unless every sub-feature and requirement in the spec is implemented.
+- **No temporary placeholders.** No TODO comments, no dummy data, no "will be added later", no dev-mode shortcuts.
+- **If you run out of context/time,** clearly document exactly what remains unfinished so the next session can pick it up — don't just list vague "next steps."
+- **Verification step:** After building, re-read the spec and diff it against what you built. If bullets are missing, you're not done.
 
 ### Before Starting Any Task
 1. Read the relevant doc(s) from `docs/` (numbered 00-22)

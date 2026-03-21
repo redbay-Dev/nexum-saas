@@ -18,6 +18,8 @@ export interface Organisation {
   bankAccountName: string | null;
   defaultPaymentTerms: number;
   timezone: string;
+  quotePricingMode: string;
+  staleRateThresholdDays: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +38,8 @@ export interface UpdateOrganisationInput {
   bankAccountName?: string;
   defaultPaymentTerms?: number;
   timezone?: string;
+  quotePricingMode?: string;
+  staleRateThresholdDays?: number;
 }
 
 // ── Query Keys ──

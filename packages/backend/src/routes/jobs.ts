@@ -662,11 +662,21 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
           );
       }
 
-      // Lock pricing lines when invoiced
-      if (toStatus === "invoiced") {
+      // Snapshot pricing lines when confirmed
+      if (toStatus === "confirmed") {
+        const now = new Date();
         await ctx.tenantDb
           .update(jobPricingLines)
-          .set({ isLocked: true, updatedAt: new Date() })
+          .set({ snapshotAt: now, updatedAt: now })
+          .where(and(eq(jobPricingLines.jobId, id), isNull(jobPricingLines.snapshotAt)));
+      }
+
+      // Lock pricing lines when invoiced
+      if (toStatus === "invoiced") {
+        const now = new Date();
+        await ctx.tenantDb
+          .update(jobPricingLines)
+          .set({ isLocked: true, snapshotAt: now, updatedAt: now })
           .where(eq(jobPricingLines.jobId, id));
       }
 
@@ -1238,6 +1248,14 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
           source: input.source,
           sourceReferenceId: input.sourceReferenceId,
           sortOrder: input.sortOrder,
+          creditType: input.creditType,
+          originalLineId: input.originalLineId,
+          snapshotAt: input.snapshotAt ? new Date(input.snapshotAt) : undefined,
+          usedCustomerPricing: input.usedCustomerPricing,
+          rateCardEntryId: input.rateCardEntryId,
+          surchargeId: input.surchargeId,
+          markupRuleId: input.markupRuleId,
+          marginOverrideReason: input.marginOverrideReason,
         })
         .returning();
 
@@ -1296,6 +1314,14 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
+      // Post-snapshot: edits must be flagged as variations
+      if (existing.snapshotAt && !input.isVariation) {
+        return reply.status(400).send({
+          error: "This pricing line has been snapshotted. Edits must be flagged as variations (isVariation = true with a variationReason)",
+          code: "SNAPSHOT_VARIATION_REQUIRED",
+        });
+      }
+
       const updateValues: Record<string, unknown> = { updatedAt: new Date() };
       if (input.lineType !== undefined) updateValues.lineType = input.lineType;
       if (input.partyId !== undefined) updateValues.partyId = input.partyId;
@@ -1312,6 +1338,14 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       if (input.source !== undefined) updateValues.source = input.source;
       if (input.sourceReferenceId !== undefined) updateValues.sourceReferenceId = input.sourceReferenceId;
       if (input.sortOrder !== undefined) updateValues.sortOrder = input.sortOrder;
+      if (input.creditType !== undefined) updateValues.creditType = input.creditType;
+      if (input.originalLineId !== undefined) updateValues.originalLineId = input.originalLineId;
+      if (input.snapshotAt !== undefined) updateValues.snapshotAt = new Date(input.snapshotAt);
+      if (input.usedCustomerPricing !== undefined) updateValues.usedCustomerPricing = input.usedCustomerPricing;
+      if (input.rateCardEntryId !== undefined) updateValues.rateCardEntryId = input.rateCardEntryId;
+      if (input.surchargeId !== undefined) updateValues.surchargeId = input.surchargeId;
+      if (input.markupRuleId !== undefined) updateValues.markupRuleId = input.markupRuleId;
+      if (input.marginOverrideReason !== undefined) updateValues.marginOverrideReason = input.marginOverrideReason;
 
       const [updated] = await ctx.tenantDb
         .update(jobPricingLines)

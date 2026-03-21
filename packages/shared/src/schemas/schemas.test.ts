@@ -18,6 +18,16 @@ import {
   jobStatusTransitionSchema,
   createLicenceSchema,
   createMedicalSchema,
+  createCustomerRateCardSchema,
+  createRateCardEntrySchema,
+  createMarkupRuleSchema,
+  createMarginThresholdSchema,
+  createSurchargeSchema,
+  createPricingTemplateSchema,
+  createTemplateLineSchema,
+  bulkPriceUpdateSchema,
+  createPricingAllocationSchema,
+  updateOrganisationSchema,
 } from "./index.js";
 
 // ── ABN Schema ──
@@ -433,10 +443,43 @@ describe("createJobPricingLineSchema", () => {
     }
   });
 
-  it("should reject negative quantity", () => {
+  it("should allow negative quantity for credits", () => {
     const result = createJobPricingLineSchema.safeParse({
       ...validLine,
       quantity: -1,
+      creditType: "rate_correction",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should allow negative total for credit lines", () => {
+    const result = createJobPricingLineSchema.safeParse({
+      ...validLine,
+      total: -500,
+      unitRate: -25,
+      quantity: 20,
+      creditType: "goodwill",
+      originalLineId: "11111111-1111-4111-a111-111111111111",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept tracing fields", () => {
+    const result = createJobPricingLineSchema.safeParse({
+      ...validLine,
+      usedCustomerPricing: true,
+      rateCardEntryId: "11111111-1111-4111-a111-111111111111",
+      markupRuleId: "22222222-2222-4222-a222-222222222222",
+      surchargeId: "33333333-3333-4333-a333-333333333333",
+      marginOverrideReason: "Approved by manager — volume discount",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject invalid credit type", () => {
+    const result = createJobPricingLineSchema.safeParse({
+      ...validLine,
+      creditType: "invalid_type",
     });
     expect(result.success).toBe(false);
   });
@@ -806,5 +849,316 @@ describe("paginationQuerySchema", () => {
     if (result.success) {
       expect(result.data.limit).toBe(25);
     }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// ── Pricing Engine Schemas ──
+// ══════════════════════════════════════════════════════════════════
+
+describe("createCustomerRateCardSchema", () => {
+  it("should accept valid rate card", () => {
+    const result = createCustomerRateCardSchema.safeParse({
+      customerId: "11111111-1111-4111-a111-111111111111",
+      name: "Standard Rates 2026",
+      effectiveFrom: "2026-01-01",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept rate card with all fields", () => {
+    const result = createCustomerRateCardSchema.safeParse({
+      customerId: "11111111-1111-4111-a111-111111111111",
+      name: "Premium Rates Q1",
+      effectiveFrom: "2026-01-01",
+      effectiveTo: "2026-03-31",
+      isActive: true,
+      notes: "Negotiated annual review",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject rate card without customer", () => {
+    expect(createCustomerRateCardSchema.safeParse({
+      name: "No Customer",
+      effectiveFrom: "2026-01-01",
+    }).success).toBe(false);
+  });
+
+  it("should reject rate card without name", () => {
+    expect(createCustomerRateCardSchema.safeParse({
+      customerId: "11111111-1111-4111-a111-111111111111",
+      effectiveFrom: "2026-01-01",
+    }).success).toBe(false);
+  });
+});
+
+describe("createRateCardEntrySchema", () => {
+  it("should accept valid entry", () => {
+    const result = createRateCardEntrySchema.safeParse({
+      category: "cartage",
+      rateType: "per_tonne",
+      unitRate: 15.50,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept entry with material subcategory", () => {
+    const result = createRateCardEntrySchema.safeParse({
+      materialSubcategoryId: "22222222-2222-4222-a222-222222222222",
+      category: "material",
+      rateType: "per_tonne",
+      unitRate: 30,
+      description: "Clean fill delivery",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject entry without category", () => {
+    expect(createRateCardEntrySchema.safeParse({
+      rateType: "per_tonne",
+      unitRate: 10,
+    }).success).toBe(false);
+  });
+});
+
+describe("createMarkupRuleSchema", () => {
+  it("should accept percentage rule", () => {
+    const result = createMarkupRuleSchema.safeParse({
+      name: "Standard 20% Markup",
+      type: "percentage",
+      markupPercentage: 20,
+      priority: 10,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept fixed amount rule", () => {
+    const result = createMarkupRuleSchema.safeParse({
+      name: "$5/t Clean Fill",
+      type: "fixed",
+      markupFixedAmount: 5,
+      materialCategoryId: "11111111-1111-4111-a111-111111111111",
+      supplierId: "22222222-2222-4222-a222-222222222222",
+      priority: 5,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject invalid type", () => {
+    expect(createMarkupRuleSchema.safeParse({
+      name: "Bad",
+      type: "invalid",
+      markupPercentage: 10,
+    }).success).toBe(false);
+  });
+
+  it("should default priority to 100", () => {
+    const result = createMarkupRuleSchema.safeParse({
+      name: "Default Priority",
+      type: "percentage",
+      markupPercentage: 15,
+    });
+    if (result.success) {
+      expect(result.data.priority).toBe(100);
+    }
+  });
+});
+
+describe("createMarginThresholdSchema", () => {
+  it("should accept global threshold", () => {
+    const result = createMarginThresholdSchema.safeParse({
+      level: "global",
+      minimumMarginPercent: 10,
+      warningMarginPercent: 15,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept customer-level threshold with reference", () => {
+    const result = createMarginThresholdSchema.safeParse({
+      level: "customer",
+      referenceId: "11111111-1111-4111-a111-111111111111",
+      minimumMarginPercent: 5,
+      warningMarginPercent: 8,
+      requiresApproval: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject invalid level", () => {
+    expect(createMarginThresholdSchema.safeParse({
+      level: "invalid",
+      minimumMarginPercent: 10,
+      warningMarginPercent: 15,
+    }).success).toBe(false);
+  });
+
+  it("should accept all four levels", () => {
+    for (const level of ["global", "category", "customer", "material_type"]) {
+      expect(createMarginThresholdSchema.safeParse({
+        level,
+        minimumMarginPercent: 10,
+        warningMarginPercent: 15,
+      }).success).toBe(true);
+    }
+  });
+});
+
+describe("createSurchargeSchema", () => {
+  it("should accept percentage surcharge", () => {
+    const result = createSurchargeSchema.safeParse({
+      name: "Fuel Levy",
+      type: "percentage",
+      value: 3.5,
+      appliesTo: ["cartage", "hire"],
+      effectiveFrom: "2026-01-01",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept fixed surcharge", () => {
+    const result = createSurchargeSchema.safeParse({
+      name: "Environmental Surcharge",
+      type: "fixed",
+      value: 2.50,
+      appliesTo: ["tip_fee"],
+      autoApply: false,
+      effectiveFrom: "2026-04-01",
+      effectiveTo: "2026-06-30",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject empty appliesTo", () => {
+    expect(createSurchargeSchema.safeParse({
+      name: "No Categories",
+      type: "percentage",
+      value: 5,
+      appliesTo: [],
+      effectiveFrom: "2026-01-01",
+    }).success).toBe(false);
+  });
+});
+
+describe("createPricingTemplateSchema", () => {
+  it("should accept valid template", () => {
+    const result = createPricingTemplateSchema.safeParse({
+      name: "Standard Quarry Run",
+      description: "Default pricing for quarry deliveries",
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("createTemplateLineSchema", () => {
+  it("should accept valid template line", () => {
+    const result = createTemplateLineSchema.safeParse({
+      lineType: "revenue",
+      category: "cartage",
+      rateType: "per_tonne",
+      unitRate: 15,
+      description: "Standard cartage rate",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept line without unit rate", () => {
+    const result = createTemplateLineSchema.safeParse({
+      lineType: "cost",
+      category: "material",
+      rateType: "per_tonne",
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("bulkPriceUpdateSchema", () => {
+  it("should accept valid bulk update", () => {
+    const result = bulkPriceUpdateSchema.safeParse({
+      materialIds: ["11111111-1111-4111-a111-111111111111"],
+      percentage: 5,
+      effectiveDate: "2026-04-01",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept negative percentage (decrease)", () => {
+    const result = bulkPriceUpdateSchema.safeParse({
+      materialIds: ["11111111-1111-4111-a111-111111111111"],
+      percentage: -10,
+      effectiveDate: "2026-04-01",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject empty materialIds", () => {
+    expect(bulkPriceUpdateSchema.safeParse({
+      materialIds: [],
+      percentage: 5,
+      effectiveDate: "2026-04-01",
+    }).success).toBe(false);
+  });
+});
+
+describe("createPricingAllocationSchema", () => {
+  it("should accept valid allocation", () => {
+    const result = createPricingAllocationSchema.safeParse({
+      customerId: "11111111-1111-4111-a111-111111111111",
+      amount: 500,
+      percentage: 50,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject percentage over 100", () => {
+    expect(createPricingAllocationSchema.safeParse({
+      customerId: "11111111-1111-4111-a111-111111111111",
+      amount: 500,
+      percentage: 101,
+    }).success).toBe(false);
+  });
+
+  it("should reject negative percentage", () => {
+    expect(createPricingAllocationSchema.safeParse({
+      customerId: "11111111-1111-4111-a111-111111111111",
+      amount: 500,
+      percentage: -5,
+    }).success).toBe(false);
+  });
+});
+
+describe("updateOrganisationSchema pricing fields", () => {
+  it("should accept quotePricingMode", () => {
+    const result = updateOrganisationSchema.safeParse({
+      quotePricingMode: "lock_at_quote",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept update_on_acceptance mode", () => {
+    const result = updateOrganisationSchema.safeParse({
+      quotePricingMode: "update_on_acceptance",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject invalid quote pricing mode", () => {
+    expect(updateOrganisationSchema.safeParse({
+      quotePricingMode: "invalid",
+    }).success).toBe(false);
+  });
+
+  it("should accept staleRateThresholdDays", () => {
+    const result = updateOrganisationSchema.safeParse({
+      staleRateThresholdDays: 90,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject staleRateThresholdDays < 1", () => {
+    expect(updateOrganisationSchema.safeParse({
+      staleRateThresholdDays: 0,
+    }).success).toBe(false);
   });
 });

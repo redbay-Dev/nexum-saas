@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from "react-router";
-import { Building2, Users, SlidersHorizontal, FileText } from "lucide-react";
+import { Building2, Users, SlidersHorizontal, FileText, CreditCard, Calculator, BarChart3, Fuel, Copy } from "lucide-react";
 import { useAuth } from "@frontend/hooks/use-auth.js";
 import { cn } from "@frontend/lib/utils.js";
 import type { Permission } from "@nexum/shared";
@@ -15,6 +15,11 @@ const SETTINGS_ITEMS: SettingsNavItem[] = [
   { to: "/settings/organisation", label: "Organisation", icon: Building2, permission: "view:organisation" },
   { to: "/settings/users", label: "Users", icon: Users, permission: "view:users" },
   { to: "/settings/job-types", label: "Job Types", icon: SlidersHorizontal },
+  { to: "/settings/rate-cards", label: "Rate Cards", icon: CreditCard, permission: "view:pricing" },
+  { to: "/settings/markup-rules", label: "Markup Rules", icon: Calculator, permission: "view:pricing" },
+  { to: "/settings/margin-thresholds", label: "Margin Thresholds", icon: BarChart3, permission: "view:pricing" },
+  { to: "/settings/surcharges", label: "Surcharges", icon: Fuel, permission: "view:pricing" },
+  { to: "/settings/pricing-templates", label: "Pricing Templates", icon: Copy, permission: "view:pricing" },
   { to: "/settings/audit-log", label: "Audit Log", icon: FileText, permission: "view:audit_log" },
 ];
 

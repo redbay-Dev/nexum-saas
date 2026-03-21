@@ -374,6 +374,7 @@ export const MATERIAL_PRICING_BEHAVIOURS = [
   "transport_revenue",
   "material_cost",
   "material_resale",
+  "buyback",
   "tracking_only",
 ] as const;
 
@@ -418,9 +419,59 @@ export const JOB_PRICING_SOURCES = [
   "material",
   "tip_fee",
   "subcontractor",
+  "rate_card",
+  "markup_rule",
+  "surcharge",
 ] as const;
 
 export type JobPricingSource = (typeof JOB_PRICING_SOURCES)[number];
+
+// ── Credit Types ──
+export const CREDIT_TYPES = [
+  "overpayment",
+  "goodwill",
+  "rate_correction",
+  "reversal",
+] as const;
+
+export type CreditType = (typeof CREDIT_TYPES)[number];
+
+// ── Markup Rule Types ──
+export const MARKUP_RULE_TYPES = ["percentage", "fixed"] as const;
+
+export type MarkupRuleType = (typeof MARKUP_RULE_TYPES)[number];
+
+// ── Surcharge Types ──
+export const SURCHARGE_TYPES = ["percentage", "fixed"] as const;
+
+export type SurchargeType = (typeof SURCHARGE_TYPES)[number];
+
+// ── Margin Threshold Levels ──
+export const MARGIN_THRESHOLD_LEVELS = [
+  "global",
+  "category",
+  "customer",
+  "material_type",
+] as const;
+
+export type MarginThresholdLevel = (typeof MARGIN_THRESHOLD_LEVELS)[number];
+
+// ── Price Change Sources ──
+export const PRICE_CHANGE_SOURCES = [
+  "manual",
+  "bulk",
+  "csv_import",
+] as const;
+
+export type PriceChangeSource = (typeof PRICE_CHANGE_SOURCES)[number];
+
+// ── Quote Pricing Modes ──
+export const QUOTE_PRICING_MODES = [
+  "lock_at_quote",
+  "update_on_acceptance",
+] as const;
+
+export type QuotePricingMode = (typeof QUOTE_PRICING_MODES)[number];
 
 // ── Deallocation Reasons ──
 export const DEALLOCATION_REASONS = [

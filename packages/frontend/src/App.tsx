@@ -37,6 +37,12 @@ import { UserManagementPage } from "@frontend/pages/settings/users.js";
 import { AuditLogPage } from "@frontend/pages/settings/audit-log.js";
 import { SettingsLayout } from "@frontend/layouts/settings-layout.js";
 import { SchedulingPage } from "@frontend/pages/scheduling/index.js";
+import { RateCardsSettingsPage } from "@frontend/pages/settings/rate-cards.js";
+import { RateCardDetailPage } from "@frontend/pages/settings/rate-card-detail.js";
+import { MarkupRulesSettingsPage } from "@frontend/pages/settings/markup-rules.js";
+import { MarginThresholdsSettingsPage } from "@frontend/pages/settings/margin-thresholds.js";
+import { SurchargesSettingsPage } from "@frontend/pages/settings/surcharges.js";
+import { PricingTemplatesSettingsPage } from "@frontend/pages/settings/pricing-templates.js";
 
 export function App(): React.JSX.Element {
   return (
@@ -88,6 +94,13 @@ export function App(): React.JSX.Element {
           <Route path="users" element={<UserManagementPage />} />
           <Route path="job-types" element={<JobTypeSettingsPage />} />
           <Route path="audit-log" element={<AuditLogPage />} />
+          <Route path="rate-cards" element={<RateCardsSettingsPage />} />
+          <Route path="rate-cards/:id" element={<RateCardDetailPage />} />
+          <Route path="markup-rules" element={<MarkupRulesSettingsPage />} />
+          <Route path="margin-thresholds" element={<MarginThresholdsSettingsPage />} />
+          <Route path="surcharges" element={<SurchargesSettingsPage />} />
+          <Route path="pricing-templates" element={<PricingTemplatesSettingsPage />} />
+          <Route path="pricing-templates/:id" element={<PricingTemplatesSettingsPage />} />
         </Route>
       </Route>
 

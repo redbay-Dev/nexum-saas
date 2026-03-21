@@ -2,6 +2,122 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.16.0] — 2026-03-21
+
+### Complete Pricing Engine — All Doc 09 Features Implemented
+
+**What was built:**
+
+Complete implementation of the pricing engine (doc 09) across 8 phases, covering every sub-feature specified in the spec. Previous sessions had basic pricing line CRUD and financial summary (~20% of doc 09). This session implements the remaining ~80%.
+
+**Phase 1 — Foundation:**
+- Extended `job_pricing_lines` with 8 new columns: `credit_type`, `original_line_id`, `snapshot_at`, `used_customer_pricing`, `rate_card_entry_id`, `surcharge_id`, `markup_rule_id`, `margin_override_reason`
+- Added `"buyback"` to `MATERIAL_PRICING_BEHAVIOURS` (was missing — spec requires 5 behaviours)
+- Extended `JOB_PRICING_SOURCES` with `"rate_card"`, `"markup_rule"`, `"surcharge"`
+- New constants: `CREDIT_TYPES`, `MARKUP_RULE_TYPES`, `SURCHARGE_TYPES`, `MARGIN_THRESHOLD_LEVELS`, `PRICE_CHANGE_SOURCES`, `QUOTE_PRICING_MODES`
+- Extended `organisation` table with `quote_pricing_mode` and `stale_rate_threshold_days`
+- Pricing line schema now allows negative amounts for credits
+
+**Phase 2 — Customer Rate Cards:**
+- `customer_rate_cards` + `customer_rate_card_entries` tables
+- Three-tier rate lookup service: customer rate card → standard material rate → manual entry
+- Effective date filtering — rate cards only apply within their date range
+- Full CRUD (8 endpoints) at `/api/v1/rate-cards`
+- Rate lookup endpoint: `GET /api/v1/rate-cards/lookup`
+- Frontend: Rate Cards settings page + detail page with entries management
+- `usedCustomerPricing` flag tracks when auto-applied rates were used
+
+**Phase 3 — Markup Rules + Margin Thresholds:**
+- `markup_rules` table — priority-based cost-to-revenue auto-generation
+- `margin_thresholds` table — multi-level margin validation (global > category > customer > material_type)
+- Markup engine: finds highest-priority matching rule, applies percentage or fixed amount markup
+- Margin check service: most-specific-wins threshold lookup, returns ok/warning/blocked
+- Test/preview endpoint: `POST /api/v1/markup-rules/test` — enter a cost scenario, see which rule matches and the result
+- Full CRUD for both (10 endpoints total)
+- Frontend: Markup Rules page with priority ordering + test dialog, Margin Thresholds page
+
+**Phase 4 — Surcharges & Credits:**
+- `surcharges` + `surcharge_history` tables
+- Surcharge engine: finds applicable surcharges by category + effective date, generates surcharge line data
+- Value change history recorded automatically
+- Full CRUD (5 endpoints) at `/api/v1/surcharges`
+- Credits: pricing lines now support negative amounts with `creditType` (overpayment, goodwill, rate_correction, reversal) and `originalLineId` linking
+- Frontend: Surcharges settings page with category selector + auto-apply toggle
+
+**Phase 5 — Pricing Templates + Behaviour Auto-Generation:**
+- `pricing_templates` + `pricing_template_lines` tables
+- Template apply endpoint: bulk-creates pricing lines on a job from template
+- Pricing behaviour engine (pure functions, unit-tested):
+  - `inferPricingBehaviour()` — context-based inference per doc 09 rules
+  - `generatePricingLinesFromBehaviour()` — creates appropriate lines per behaviour type
+  - `generateTipFeeLines()` — tip fee + environmental levy auto-generation with minimum charge enforcement
+  - Subcontractor rate auto-generation when `has_subcontractor_rate` flag set
+- Full template CRUD + apply (7 endpoints) at `/api/v1/pricing-templates`
+- Frontend: Pricing Templates settings page
+
+**Phase 6 — Price History, Bulk Updates, Rate Review:**
+- `price_history` table — tracks all material price changes with effective dates, change sources, and bulk update grouping
+- `recordPriceChange()` service — called on every material price update
+- `getPriceAsOf()` — effective-date price lookup (most recent price before a given date)
+- Bulk percentage update: apply % increase/decrease to selected materials
+- Supplier-wide bulk update: update all materials from a specific supplier
+- Stale rate detection: query materials not updated within configurable threshold
+- Mark-as-reviewed endpoint for rate review workflow
+- 6 endpoints at `/api/v1/price-management`
+
+**Phase 7 — Snapshots, Immutability, Quote Pricing Modes:**
+- Snapshot at confirmation: all pricing lines get `snapshot_at` timestamp when job → confirmed
+- Lock at invoice: all pricing lines get `is_locked = true` when job → invoiced
+- Variation enforcement: post-snapshot pricing line edits require `isVariation = true` (returns SNAPSHOT_VARIATION_REQUIRED error otherwise)
+- Quote pricing mode: tenant-configurable `lock_at_quote` vs `update_on_acceptance` (stored on organisation)
+- Frontend: quote pricing mode toggle + stale rate threshold on Organisation Settings page
+
+**Phase 8 — Pricing Allocations + Hourly Rate Enforcement:**
+- `pricing_allocations` table — multi-customer job splits (amount + percentage per customer)
+- Allocation validator: ensures percentages sum to 100% and amounts sum to line total
+- Hourly charge calculator: minimum hours enforcement, overtime rate after threshold hours
+- Jobs table extended with `overtime_rate` and `overtime_threshold_hours` columns
+- Job schema updated to accept overtime fields
+
+**New database tables (10):**
+- `customer_rate_cards`, `customer_rate_card_entries`
+- `markup_rules`, `margin_thresholds`
+- `surcharges`, `surcharge_history`
+- `pricing_templates`, `pricing_template_lines`
+- `price_history`
+- `pricing_allocations`
+
+**New migrations (7):**
+- `0007_pricing_engine_foundation.sql` through `0013_pricing_allocations.sql`
+
+**New backend services (9):**
+- `rate-lookup.ts`, `markup-engine.ts`, `margin-check.ts`, `surcharge-engine.ts`
+- `pricing-behaviour.ts`, `price-history.ts`, `pricing-snapshot.ts`
+- `hourly-pricing.ts`, `allocation-validator.ts`
+
+**New route files (6):**
+- `rate-cards.ts` (8 endpoints), `markup-rules.ts` (6), `margin-thresholds.ts` (4)
+- `surcharges.ts` (5), `pricing-templates.ts` (7), `price-management.ts` (6)
+
+**New frontend pages (6 settings pages):**
+- Rate Cards (list + detail with entries), Markup Rules (with test/preview dialog)
+- Margin Thresholds, Surcharges, Pricing Templates
+- Organisation Settings extended with pricing configuration section
+
+**Test counts:**
+- Before: 254 tests across 14 files
+- After: **365 tests across 22 files** (201 shared, 158 backend, 4 pdf, 2 frontend)
+- New: 111 tests — 74 integration tests (rate cards, markup rules, margin thresholds, surcharges) + 37 unit tests (pricing behaviours, hourly pricing, allocation validation, schema validation)
+
+**All checks pass:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — 365 tests, all passing
+- `pnpm build` — all packages build
+
+**What's next:**
+Continue the financial pipeline: **Dockets & Daysheets** (doc 08) → captures what happened on each job day, bridges completed work to billing via the daysheet-to-pricing flow (now that the pricing engine exists to receive it). Then Invoicing (doc 10) to generate revenue from the pricing lines.
+
 ## [0.15.0] — 2026-03-21
 
 ### Deepen Three Half-Built Features — Pricing, Scheduling, Admin

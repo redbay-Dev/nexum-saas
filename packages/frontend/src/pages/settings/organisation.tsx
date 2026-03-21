@@ -40,6 +40,8 @@ export function OrganisationSettingsPage(): React.JSX.Element {
       bankAccountName: org.bankAccountName ?? "",
       defaultPaymentTerms: org.defaultPaymentTerms,
       timezone: org.timezone,
+      quotePricingMode: org.quotePricingMode ?? "lock_at_quote",
+      staleRateThresholdDays: org.staleRateThresholdDays ?? 180,
     });
     setIsEditing(true);
   }
@@ -224,6 +226,51 @@ export function OrganisationSettingsPage(): React.JSX.Element {
             ) : (
               <p className="text-sm">{org.timezone.replace("Australia/", "")}</p>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pricing Configuration</CardTitle>
+          <CardDescription>Quote pricing behaviour and rate review settings.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Quote Pricing Mode</Label>
+            {isEditing ? (
+              <Select value={formData.quotePricingMode as string} onValueChange={(v) => handleChange("quotePricingMode", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lock_at_quote">Lock at Quote</SelectItem>
+                  <SelectItem value="update_on_acceptance">Update on Acceptance</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-sm">{org.quotePricingMode === "lock_at_quote" ? "Lock at Quote" : "Update on Acceptance"}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {formData.quotePricingMode === "lock_at_quote" || (!isEditing && org.quotePricingMode === "lock_at_quote")
+                ? "Rates are locked when the quote is created. The quoted price is the price."
+                : "Rates are refreshed with current prices when the customer accepts the quote."}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Stale Rate Threshold (days)</Label>
+            {isEditing ? (
+              <Input
+                type="number"
+                min={1}
+                max={730}
+                value={formData.staleRateThresholdDays as number}
+                onChange={(e) => handleChange("staleRateThresholdDays", parseInt(e.target.value, 10) || 180)}
+              />
+            ) : (
+              <p className="text-sm">{org.staleRateThresholdDays} days</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Materials not updated within this period will be flagged for rate review.
+            </p>
           </div>
         </CardContent>
       </Card>
