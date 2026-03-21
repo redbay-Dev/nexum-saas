@@ -2,6 +2,69 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.10.0] — 2026-03-21
+
+### Job Detail Completion, Dashboard, Settings UI
+
+**What was built:**
+
+Frontend — 4 new dialog components (`components/jobs/`):
+- `add-location-dialog.tsx` — Select address from existing addresses, location type (pickup/delivery), contact name/phone, tip fee, instructions
+- `add-material-dialog.tsx` — Source type selector (own stock/supplier/customer/disposal), cascading material select per source, quantity, unit of measure, flow type, notes. Material data is snapshot on add.
+- `add-asset-requirement-dialog.tsx` — Asset category select with cascading subcategory, quantity, payload limit, special requirements
+- `add-pricing-line-dialog.tsx` — Line type (revenue/cost), category, rate type, quantity + unit rate with auto-calculated total
+
+Frontend — Job detail page updated:
+- All 4 sub-resource cards (Locations, Materials, Asset Requirements, Pricing) now have "Add" buttons in their headers
+- Buttons gated by `manage:jobs` / `manage:pricing` permission and job locked status (invoiced jobs can't be modified)
+
+Frontend — Dashboard updated with real data:
+- Jobs count (was "coming soon") now shows live count from API
+- Employees count (was "coming soon") now shows live count from API
+- Assets count (was "coming soon") now shows live count from API
+- All 4 stat cards link to their respective list pages
+- Quick actions updated: "Create job" is now the primary action
+
+Frontend — Settings section and Job Types admin page:
+- New "Settings" nav group in sidebar with SlidersHorizontal icon
+- `pages/settings/job-types.tsx` — Full CRUD for job types at `/settings/job-types`
+- Table view showing all types with visible sections badges, required fields badges, active/inactive status
+- System types (Transport, Disposal, Hire, On-site) show "System" badge, cannot be deleted
+- Create/edit dialog with: name, code, description, visible section checkboxes (locations, materials, asset requirements, pricing, scheduling), required field checkboxes (PO number, materials, locations), active toggle
+- Route registered in App.tsx, breadcrumbs added
+
+Frontend — Navigation:
+- `app-shell.tsx` — Added SETTINGS_NAV group with "Job Types" link
+- Breadcrumb map updated for `/settings/job-types`
+
+**All checks pass:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — all passing (24 tests across 6 files)
+- `pnpm build` — all packages build
+
+**Known issues:**
+- None discovered
+
+**What's STILL MISSING:**
+- Job assignments/allocations (assigning specific drivers and assets to confirmed jobs) — next major feature
+- Scheduling view (Doc 07) — calendar/timeline showing jobs across dates — not started
+- Dockets/Daysheets (Doc 08) — not started
+- Pricing Engine (Doc 09) — not started
+- Invoicing/RCTI (Doc 10) — not started
+- Xero integration (Doc 11) — not started
+- All optional platform modules (Docs 12-20) — not started
+- Admin pages for: asset categories, material categories, qualification types, tenant org settings, user management, audit log viewer
+- Integration/E2E tests
+- CI/CD workflows (GitHub Actions)
+- OpenAPI/Swagger documentation
+
+**What's next:**
+- Job assignments — assigning specific drivers and assets to confirmed jobs (extends Doc 06)
+- Scheduling (Doc 07) — calendar/timeline view for resource allocation
+- Dockets/Daysheets (Doc 08) — charge creation from completed jobs
+- More admin/settings pages (asset categories, material categories, qualification types)
+
 ## [0.9.0] — 2026-03-21
 
 ### Job System (Doc 06) — Foundation Implementation

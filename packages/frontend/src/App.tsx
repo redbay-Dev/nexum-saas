@@ -31,6 +31,7 @@ import { JobDetailPage } from "@frontend/pages/jobs/detail.js";
 import { ProjectsPage } from "@frontend/pages/projects/index.js";
 import { CreateProjectPage } from "@frontend/pages/projects/create.js";
 import { ProjectDetailPage } from "@frontend/pages/projects/detail.js";
+import { JobTypeSettingsPage } from "@frontend/pages/settings/job-types.js";
 
 export function App(): React.JSX.Element {
   return (
@@ -75,6 +76,7 @@ export function App(): React.JSX.Element {
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/new" element={<CreateProjectPage />} />
         <Route path="projects/:id" element={<ProjectDetailPage />} />
+        <Route path="settings/job-types" element={<JobTypeSettingsPage />} />
       </Route>
 
       {/* Default redirect */}

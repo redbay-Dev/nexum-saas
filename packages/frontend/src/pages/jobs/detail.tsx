@@ -36,6 +36,10 @@ import { Skeleton } from "@frontend/components/ui/skeleton.js";
 import { toast } from "sonner";
 import { getValidTransitions } from "@nexum/shared";
 import type { JobStatus } from "@nexum/shared";
+import { AddLocationDialog } from "@frontend/components/jobs/add-location-dialog.js";
+import { AddMaterialDialog } from "@frontend/components/jobs/add-material-dialog.js";
+import { AddAssetRequirementDialog } from "@frontend/components/jobs/add-asset-requirement-dialog.js";
+import { AddPricingLineDialog } from "@frontend/components/jobs/add-pricing-line-dialog.js";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -352,9 +356,14 @@ export function JobDetailPage(): React.JSX.Element {
       {/* Locations */}
       {job.jobTypeVisibleSections?.locations !== false ? (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Locations</CardTitle>
-            <CardDescription>Pickup and delivery locations</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Locations</CardTitle>
+              <CardDescription>Pickup and delivery locations</CardDescription>
+            </div>
+            {can("manage:jobs") && !isLocked ? (
+              <AddLocationDialog jobId={id} />
+            ) : null}
           </CardHeader>
           <CardContent>
             {job.locations.length === 0 ? (
@@ -417,9 +426,14 @@ export function JobDetailPage(): React.JSX.Element {
       {/* Materials */}
       {job.jobTypeVisibleSections?.materials !== false ? (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Materials</CardTitle>
-            <CardDescription>Material snapshots for this job</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Materials</CardTitle>
+              <CardDescription>Material snapshots for this job</CardDescription>
+            </div>
+            {can("manage:jobs") && !isLocked ? (
+              <AddMaterialDialog jobId={id} />
+            ) : null}
           </CardHeader>
           <CardContent>
             {job.materials.length === 0 ? (
@@ -474,9 +488,14 @@ export function JobDetailPage(): React.JSX.Element {
       {/* Asset Requirements */}
       {job.jobTypeVisibleSections?.assetRequirements !== false ? (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Asset Requirements</CardTitle>
-            <CardDescription>What assets this job needs</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Asset Requirements</CardTitle>
+              <CardDescription>What assets this job needs</CardDescription>
+            </div>
+            {can("manage:jobs") && !isLocked ? (
+              <AddAssetRequirementDialog jobId={id} />
+            ) : null}
           </CardHeader>
           <CardContent>
             {job.assetRequirements.length === 0 ? (
@@ -533,9 +552,14 @@ export function JobDetailPage(): React.JSX.Element {
       {/* Pricing Lines */}
       {job.jobTypeVisibleSections?.pricing !== false ? (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Pricing</CardTitle>
-            <CardDescription>Revenue and cost lines</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Pricing</CardTitle>
+              <CardDescription>Revenue and cost lines</CardDescription>
+            </div>
+            {can("manage:pricing") && !isLocked ? (
+              <AddPricingLineDialog jobId={id} />
+            ) : null}
           </CardHeader>
           <CardContent>
             {job.pricingLines.length === 0 ? (

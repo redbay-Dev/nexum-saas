@@ -3,12 +3,15 @@ import {
   Building2,
   Truck,
   Users,
-  ClipboardList,
+  Briefcase,
   Plus,
   ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@frontend/hooks/use-auth.js";
 import { useCompanies } from "@frontend/api/companies.js";
+import { useJobs } from "@frontend/api/jobs.js";
+import { useEmployees } from "@frontend/api/employees.js";
+import { useAssets } from "@frontend/api/assets.js";
 import { Button } from "@frontend/components/ui/button.js";
 
 interface StatCardProps {
@@ -42,8 +45,14 @@ function StatCard({ label, value, subtitle, icon, iconBg, href }: StatCardProps)
 export function DashboardPage(): React.JSX.Element {
   const { auth, can } = useAuth();
   const { data: companiesData } = useCompanies({ limit: 1 });
+  const { data: jobsData } = useJobs({ limit: 1 });
+  const { data: employeesData } = useEmployees({ limit: 1 });
+  const { data: assetsData } = useAssets({ limit: 1 });
 
   const companyCount = companiesData?.total ?? 0;
+  const jobCount = jobsData?.total ?? 0;
+  const employeeCount = employeesData?.total ?? 0;
+  const assetCount = assetsData?.total ?? 0;
 
   return (
     <div className="space-y-8">
@@ -64,25 +73,28 @@ export function DashboardPage(): React.JSX.Element {
           href="/companies"
         />
         <StatCard
-          label="Active Jobs"
-          value="-"
-          subtitle="Coming soon"
-          icon={<ClipboardList className="h-5 w-5 text-emerald-600" />}
+          label="Jobs"
+          value={String(jobCount)}
+          subtitle="All jobs across statuses"
+          icon={<Briefcase className="h-5 w-5 text-emerald-600" />}
           iconBg="bg-emerald-100/80"
+          href="/jobs"
         />
         <StatCard
-          label="Drivers"
-          value="-"
-          subtitle="Coming soon"
+          label="Employees"
+          value={String(employeeCount)}
+          subtitle="Drivers and staff"
           icon={<Users className="h-5 w-5 text-amber-600" />}
           iconBg="bg-amber-100/80"
+          href="/employees"
         />
         <StatCard
           label="Assets"
-          value="-"
-          subtitle="Coming soon"
+          value={String(assetCount)}
+          subtitle="Vehicles and equipment"
           icon={<Truck className="h-5 w-5 text-violet-600" />}
           iconBg="bg-violet-100/80"
+          href="/assets"
         />
       </div>
 
@@ -91,6 +103,19 @@ export function DashboardPage(): React.JSX.Element {
           Quick Actions
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {can("manage:jobs") ? (
+            <Button variant="outline" className="h-auto justify-start px-5 py-4" asChild>
+              <Link to="/jobs/new">
+                <Plus className="mr-3 h-4 w-4 text-emerald-600" />
+                <div className="flex flex-col items-start text-left">
+                  <span className="text-sm font-medium">Create job</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    New transport, disposal, or hire job
+                  </span>
+                </div>
+              </Link>
+            </Button>
+          ) : null}
           {can("manage:companies") ? (
             <Button variant="outline" className="h-auto justify-start px-5 py-4" asChild>
               <Link to="/companies/new">
@@ -105,12 +130,12 @@ export function DashboardPage(): React.JSX.Element {
             </Button>
           ) : null}
           <Button variant="outline" className="h-auto justify-start px-5 py-4" asChild>
-            <Link to="/companies">
+            <Link to="/jobs">
               <ArrowRight className="mr-3 h-4 w-4 text-emerald-600" />
               <div className="flex flex-col items-start text-left">
-                <span className="text-sm font-medium">View companies</span>
+                <span className="text-sm font-medium">View jobs</span>
                 <span className="text-xs font-normal text-muted-foreground">
-                  Browse and manage your entities
+                  Browse and manage all jobs
                 </span>
               </div>
             </Link>

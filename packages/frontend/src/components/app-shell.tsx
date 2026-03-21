@@ -10,6 +10,7 @@ import {
   MapPin,
   Package,
   Settings,
+  SlidersHorizontal,
   Truck,
   UserRound,
   Users,
@@ -67,6 +68,10 @@ const OPERATIONS_NAV: NavItem[] = [
   { to: "/materials", label: "Materials", icon: Package },
 ];
 
+const SETTINGS_NAV: NavItem[] = [
+  { to: "/settings/job-types", label: "Job Types", icon: SlidersHorizontal },
+];
+
 const BREADCRUMB_MAP: Record<string, string> = {
   "/": "Dashboard",
   "/jobs": "Jobs",
@@ -87,6 +92,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/assets/new": "Add Asset",
   "/materials": "Materials",
   "/materials/new": "Add Material",
+  "/settings/job-types": "Job Types",
 };
 
 function getInitials(email: string): string {
@@ -177,6 +183,7 @@ export function AppShell(): React.JSX.Element {
         <SidebarContent>
           <NavSection label="Overview" items={CORE_NAV} />
           <NavSection label="Operations" items={OPERATIONS_NAV} />
+          <NavSection label="Settings" items={SETTINGS_NAV} />
         </SidebarContent>
 
         <SidebarFooter className="p-3">
