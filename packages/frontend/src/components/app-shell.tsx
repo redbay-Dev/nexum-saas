@@ -2,6 +2,7 @@ import { Outlet, NavLink, useLocation } from "react-router";
 import {
   Briefcase,
   Building2,
+  CalendarClock,
   ChevronRight,
   FolderKanban,
   Globe,
@@ -57,6 +58,7 @@ const CORE_NAV: NavItem[] = [
 ];
 
 const OPERATIONS_NAV: NavItem[] = [
+  { to: "/scheduling", label: "Scheduling", icon: CalendarClock },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/companies", label: "Companies", icon: Building2 },
@@ -74,6 +76,7 @@ const SETTINGS_NAV: NavItem[] = [
 
 const BREADCRUMB_MAP: Record<string, string> = {
   "/": "Dashboard",
+  "/scheduling": "Scheduling",
   "/jobs": "Jobs",
   "/jobs/new": "New Job",
   "/projects": "Projects",

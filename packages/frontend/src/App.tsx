@@ -32,6 +32,7 @@ import { ProjectsPage } from "@frontend/pages/projects/index.js";
 import { CreateProjectPage } from "@frontend/pages/projects/create.js";
 import { ProjectDetailPage } from "@frontend/pages/projects/detail.js";
 import { JobTypeSettingsPage } from "@frontend/pages/settings/job-types.js";
+import { SchedulingPage } from "@frontend/pages/scheduling/index.js";
 
 export function App(): React.JSX.Element {
   return (
@@ -70,6 +71,7 @@ export function App(): React.JSX.Element {
         <Route path="materials" element={<MaterialsPage />} />
         <Route path="materials/new" element={<CreateMaterialPage />} />
         <Route path="materials/:sourceType/:id" element={<MaterialDetailPage />} />
+        <Route path="scheduling" element={<SchedulingPage />} />
         <Route path="jobs" element={<JobsPage />} />
         <Route path="jobs/new" element={<CreateJobPage />} />
         <Route path="jobs/:id" element={<JobDetailPage />} />

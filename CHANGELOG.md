@@ -2,6 +2,90 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.12.0] — 2026-03-21
+
+### Scheduling — Dispatcher Resource Allocation View
+
+**What was built:**
+
+Backend — new scheduling route (`/api/v1/scheduling`):
+- `GET /api/v1/scheduling` — Returns jobs for a specific date with all assignments, locations, asset requirements, and joined resource data. Filters by status, priority, job type, customer, project, allocation status. Supports search across job number, name, customer, locations, asset registration, driver names, contractor names. Excludes cancelled/declined jobs by default. Returns summary stats (total, allocated, unallocated, assignment count).
+- `GET /api/v1/scheduling/conflicts` — Returns double-booking warnings for the date. Groups assignments by asset/driver and identifies resources assigned to 2+ jobs. Optionally filters to specific asset or driver. Returns conflict details with job numbers and time windows.
+- `GET /api/v1/scheduling/resources` — Returns available assets and drivers with their allocation count for the day. Assets filtered to available/in_use status, drivers filtered to active. Includes category/subcategory info for assets.
+
+Frontend — new API hooks (`api/scheduling.ts`):
+- `useSchedulingJobs(params)` — Fetch jobs for scheduler with all filters
+- `useSchedulingConflicts(date)` — Fetch double-booking conflicts
+- `useSchedulingResources(date, type?)` — Fetch available resources with allocation counts
+- Full TypeScript types for all scheduler data structures
+
+Frontend — new scheduling page (`/scheduling`):
+- **Date navigation** — Yesterday/Today/Tomorrow + 3 forward date tabs, arrow navigation, calendar date picker, "Go to Today" button
+- **Table view — Line mode** — One compact row per job showing: job number (links to detail), name, type, customer, location summary (pickup → delivery), allocation count with conflict warning, status, priority, scheduled time, "Allocate" action button
+- **Table view — Multi-line mode** — Expanded view showing one row per assigned resource within each job. Shows resource type icon (truck/user/building), resource label, asset category, arrival time, assignment status. Unallocated jobs show italicised "No allocations" message. Conflict warnings inline with tooltip showing other jobs.
+- **Grouping** — Group by customer (default), project, or flat list. Group headers show name and job count badge.
+- **Filtering** — Allocation status (All/Allocated/Unallocated with live counts), job status (Any/Scheduled/Confirmed/In Progress/Completed/Draft), priority (All/High/Medium/Low), job type
+- **Search** — Searches across job number, name, customer, project, PO number, internal notes, location addresses, asset registration/make/model, driver names, contractor names. Partial match.
+- **Conflict display** — Header badge shows total conflict count. Row highlighting (destructive/5 bg) on jobs with conflicted resources. AlertTriangle icon on allocation count column.
+
+Frontend — new allocation dialog (`components/scheduling/allocation-dialog.tsx`):
+- Resource type selector tabs (Asset/Driver/Contractor) with icons
+- Resource picker showing allocation counts per resource ("2 jobs" badge)
+- Already-assigned resources disabled with "Already assigned" badge
+- **Double-booking warning** — When selecting a resource that's already on other jobs that day, shows a warning panel with the resource name, number of other jobs, and their job numbers. Warning only, not a block — dispatcher makes the operational call.
+- Arrival time pre-filled to 06:00 on the selected date
+- Optional end time and notes fields
+- Invalidates scheduling queries on success for immediate refresh
+
+Frontend — navigation updated:
+- "Scheduling" added to sidebar OPERATIONS group with CalendarClock icon (first item, above Jobs)
+- Route registered at `/scheduling`
+- Breadcrumb entry added
+
+New shadcn/ui components added:
+- Popover (date picker trigger)
+- Calendar (date picker content, uses react-day-picker)
+- Tabs (unused directly but available for future views)
+
+**Business logic implemented:**
+- Date-based job windowing — finds jobs scheduled on the date OR multi-day jobs spanning the date
+- Double-booking detection — aggregates assignments by asset/driver across all jobs on a date, flags resources with 2+ assignments
+- Resource availability tracking — shows allocation count per asset/driver for the selected day
+- Search across all visible and related fields (app-wide principle from spec)
+- Allocation from scheduler context reuses existing job assignment API with full type-specific validation
+
+**All checks pass:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — all passing (24 tests across 6 files)
+- `pnpm build` — all packages build (chunk size warning noted, not blocking)
+
+**Known issues:**
+- None discovered
+
+**What's STILL MISSING from the full Scheduling spec (Doc 07):**
+- Timeline/Gantt view — visual timeline with drag-drop allocation
+- Saved views — user-configurable filter/grouping/column presets
+- Multi-day side-by-side comparison view
+- Separate scheduling window (open in new window/tab)
+- Bulk allocation — allocate multiple resources in one action with staggered arrival times
+- Smart recommendations — multi-factor scoring (region, ranking, availability, proximity, hours worked, maintenance, driver preference, capability match)
+- AI-driven auto-allocation — auto/hybrid/human-review modes
+- Route and backhaul integration — route awareness, backhaul detection, multi-stop optimization
+- Recurring schedules — auto-creation from templates with recurrence patterns
+- Real-time multi-user broadcast via WebSocket — live allocation updates across windows
+- Compliance gates on allocation — check resource compliance before allowing allocation
+- Deallocation with reason capture and completed load count
+- Assignment notifications — SMS/push to drivers when assigned
+- Requirement fulfilment tracking — link allocations to specific asset requirements
+
+**What's next:**
+- Timeline/Gantt view for visual scheduling
+- Bulk allocation for large jobs (1-300 trucks)
+- Dockets/Daysheets (Doc 08) — charge creation from completed jobs
+- Pricing Engine (Doc 09) — rate matrices and calculation rules
+- More admin/settings pages (asset categories, material categories, qualification types, org settings)
+
 ## [0.11.0] — 2026-03-21
 
 ### Job Assignments — Assign Assets, Drivers, and Contractors to Jobs
