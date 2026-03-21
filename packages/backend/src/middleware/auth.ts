@@ -33,6 +33,16 @@ export interface OpShieldSession {
 export async function getSession(
   request: FastifyRequest,
 ): Promise<OpShieldSession | null> {
+  // Test auth: when NODE_ENV=test, allow X-Test-Auth header to provide
+  // session data directly. Bypasses JWT validation only — all downstream
+  // processing (tenant DB lookup, permission checks, audit logging) is real.
+  if (process.env.NODE_ENV === "test") {
+    const testAuth = request.headers["x-test-auth"];
+    if (typeof testAuth === "string") {
+      return JSON.parse(testAuth) as OpShieldSession;
+    }
+  }
+
   // Try Authorization header first, then cookie
   const token =
     extractBearerToken(request.headers.authorization) ??

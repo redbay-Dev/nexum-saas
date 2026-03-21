@@ -2,6 +2,90 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.14.0] — 2026-03-21
+
+### Integration Tests — Full Business Logic Tests Against Real Database
+
+**What was built:**
+
+Real integration test infrastructure — no mocks. Every test hits real routes through real middleware against a real PostgreSQL database with a real tenant schema.
+
+**Test infrastructure:**
+- `test-utils/global-setup.ts` — Creates `nexum_test` database, runs public + tenant schema migrations, provisions test tenant (`tenant_11111111-1111-4111-a111-111111111111`), seeds 4 test users (owner/dispatcher/finance/read_only), 2 job types, 3 companies, 4 employees, 3 assets, 2 addresses, 1 project
+- `test-utils/seed.ts` — Fixed v4 UUIDs for all seed data, idempotent inserts (`ON CONFLICT DO NOTHING`)
+- `test-utils/helpers.ts` — `injectAs(app, role, method, url, payload?)` sends authenticated requests via `X-Test-Auth` header; `cleanupJobs()` truncates mutable tables between test groups
+- `middleware/auth.ts` — Added test auth code path: when `NODE_ENV=test` and `X-Test-Auth` header present, parses session directly. All downstream processing (real DB lookup in `tenant_users`, real permission checks, real audit logging) is unchanged.
+- `vitest.config.ts` — `globalSetup`, `env` overrides for test DB, `pool: "forks"` for connection isolation
+
+**Integration tests (`jobs.integration.test.ts`) — 38 tests covering:**
+- **Job CRUD** (7 tests) — Create, read detail with sub-resources, update, soft delete (verify row still exists with `deleted_at`), list with filtering/pagination, validation errors, non-customer rejection
+- **Status Lifecycle** (8 tests) — Forward transitions (draft→scheduled, draft→confirmed→in_progress with `actualStart` auto-set, completion with `actualEnd` auto-set), invalid transitions rejected (`INVALID_TRANSITION`), invoiced is terminal (no outgoing transitions), self-transitions rejected, rework path (completed→in_progress with reason), recovery path (cancelled→draft with reason)
+- **Reason Requirements** (3 tests) — Confirmed→cancelled without reason returns `REASON_REQUIRED`, with reason stores `cancellationReason`, rework without reason rejected
+- **Cancellation Cascades** (1 test) — Cancel a confirmed job with 2 assignments → both assignments auto-set to `cancelled` status (verified by direct DB query)
+- **Invoice Lock** (4 tests) — Invoiced job: pricing lines have `is_locked=true` (DB query), edit returns `JOB_LOCKED`, delete returns `JOB_LOCKED`, adding pricing lines returns `JOB_LOCKED`
+- **Assignment Validation** (9 tests) — Reject maintenance asset (`RESOURCE_UNAVAILABLE`), accept available/in_use assets, reject terminated driver, reject non-driver employee, accept active driver, reject non-contractor company, accept contractor, reject assignments on cancelled jobs
+- **Permission Enforcement** (4 tests) — Finance cannot create jobs (403), read_only cannot create (403) but can view (200), dispatcher can create and update, unauthenticated returns 401
+- **Audit Logging** (1 test) — Create/update/status-change/delete all produce audit entries (verified by direct DB query on `audit_log` table)
+
+**Test counts:**
+- Before: 192 tests (unit + route protection only)
+- After: **230 tests across 12 files**
+- Backend: 58 tests (3 files — health, status/auth enforcement, **38 new integration tests**)
+- Shared: 166 tests (7 files)
+- Frontend: 2 tests, PDF: 4 tests
+
+**All checks pass:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — 230 tests, all passing
+
+## [0.13.0] — 2026-03-21
+
+### Testing — Unit Tests for Business Logic, Schemas, and Route Protection
+
+**What was built:**
+
+Shared package — new test files:
+- `permissions.test.ts` — Tests the role→permission matrix: owner gets all 40 permissions, admin gets all except `manage:organisation`, dispatcher manages jobs/scheduling/SMS/AI but not finance, finance manages dockets/pricing/invoicing/RCTI/Xero but not jobs, compliance manages compliance/documents/reports, read_only gets only `view:*` permissions. Verifies no overlap between dispatcher and finance write permissions.
+- `job-lifecycle.test.ts` — Tests job status transition state machine: 15 valid forward transitions (draft→quoted→scheduled→confirmed→in_progress→completed→invoiced), cancellation from every pre-invoice state, rework path (completed→in_progress), recovery (cancelled→draft, declined→draft/quoted), terminal state (invoiced allows nothing), self-transitions rejected. Tests reason requirements: 7 transitions require reason (cancellations from confirmed/in_progress, rework, reactivations, declines), normal forward transitions do not.
+- `schemas/schemas.test.ts` — Tests Zod validation schemas: ABN (11-digit regex), company (roles min 1, status default), employee (employment types, driver flag, emergency contacts), licence (all 6 Australian classes, all 8 states), medical records, job (priority default, UUID validation), job status transitions, locations (pickup/delivery), pricing lines (rate types, categories, non-negative constraints), assignments (asset/driver/contractor types), addresses (postcode 4 digits, lat/lng bounds, state validation), contacts (default preferred method), assets (status/ownership defaults, year range, weight validation), materials (all 4 source types with required fields, compliance flags, disposal fees), organisation (BSB format, payment terms cap, timezone default), pagination (limit coercion, bounds).
+- `utils/datetime.test.ts` — Tests `formatDateTimeAu` format pattern, `formatCurrencyAud` edge cases (large numbers, small decimals, whole numbers).
+
+Backend — new test file:
+- `routes/status.test.ts` — Tests GET /api/v1/status returns version and environment. Tests auth enforcement: all 14 tenant-scoped route groups return 401 without auth (companies, jobs, employees, assets, scheduling, contacts, addresses, regions, projects, job-types, asset-categories, material-categories, qualification-types, materials/tenant). Tests unauthenticated routes (health, status) succeed without auth. Tests 404 for non-existent routes.
+
+**Test counts:**
+- Before: 24 tests across 6 files
+- After: **192 tests across 11 files** (8x increase)
+- Shared: 166 tests (7 files) — permissions, job lifecycle, schemas, utilities
+- Backend: 20 tests (2 files) — health, status/auth enforcement
+- Frontend: 2 tests (1 file) — app render
+- PDF templates: 4 tests (1 file) — Handlebars helpers
+
+**All checks pass:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — 192 tests, all passing
+- `pnpm build` — all packages build
+
+**Known issues:**
+- None discovered
+
+**What's STILL MISSING for comprehensive test coverage:**
+- Integration tests against test database (need test DB setup, seed data, auth mocking)
+- Business logic tests for route handlers (job status transitions with DB, assignment cascade, audit logging)
+- Multi-tenant isolation tests (tenant A cannot see tenant B data)
+- Permission enforcement tests per route with mocked auth context
+- Module entitlement tests (requireModule middleware)
+- Frontend component tests (React Testing Library)
+- E2E tests (Playwright configuration and critical workflow tests)
+
+**What's next:**
+- Test database setup (nexum_test, seed scripts, auth mocking utilities)
+- Integration tests for job lifecycle routes
+- Dockets & Daysheets (Doc 08) — charge creation from completed jobs
+- Pricing Engine (Doc 09) — rate matrices and calculation rules
+
 ## [0.12.0] — 2026-03-21
 
 ### Scheduling — Dispatcher Resource Allocation View
