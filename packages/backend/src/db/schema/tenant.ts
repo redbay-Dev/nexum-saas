@@ -696,6 +696,250 @@ export const disposalSiteSettings = pgTable(
   ],
 );
 
+// ── Job Types (tenant-configurable) ──
+
+export const jobTypes = pgTable("job_types", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 100 }).notNull(),
+  code: varchar("code", { length: 20 }).notNull(),
+  description: text("description"),
+  isSystem: boolean("is_system").notNull().default(false),
+  visibleSections: jsonb("visible_sections").$type<{
+    locations: boolean;
+    materials: boolean;
+    assetRequirements: boolean;
+    pricing: boolean;
+    scheduling: boolean;
+  }>(),
+  requiredFields: jsonb("required_fields").$type<{
+    poNumber: boolean;
+    materials: boolean;
+    locations: boolean;
+  }>(),
+  availablePricingMethods: jsonb("available_pricing_methods").$type<string[]>(),
+  defaults: jsonb("defaults").$type<{
+    priority?: string;
+    durationHours?: number;
+    assetCategoryId?: string;
+  }>(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+// ── Projects (optional job grouping) ──
+
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectNumber: varchar("project_number", { length: 20 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    customerId: uuid("customer_id").references(() => companies.id),
+    startDate: varchar("start_date", { length: 10 }),
+    endDate: varchar("end_date", { length: 10 }),
+    salesRepId: uuid("sales_rep_id").references(() => employees.id),
+    projectLeadId: uuid("project_lead_id").references(() => employees.id),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("projects_customer_id_idx").on(table.customerId),
+    index("projects_status_idx").on(table.status),
+  ],
+);
+
+// ── Jobs ──
+
+export const jobs = pgTable(
+  "jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobNumber: varchar("job_number", { length: 20 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    jobTypeId: uuid("job_type_id")
+      .notNull()
+      .references(() => jobTypes.id),
+    customerId: uuid("customer_id").references(() => companies.id),
+    projectId: uuid("project_id").references(() => projects.id),
+    poNumber: varchar("po_number", { length: 100 }),
+    priority: varchar("priority", { length: 10 }).notNull().default("medium"),
+    status: varchar("status", { length: 20 }).notNull().default("draft"),
+    salesRepId: uuid("sales_rep_id").references(() => employees.id),
+    jobLeadId: uuid("job_lead_id").references(() => employees.id),
+    scheduledStart: timestamp("scheduled_start", { withTimezone: true }),
+    scheduledEnd: timestamp("scheduled_end", { withTimezone: true }),
+    actualStart: timestamp("actual_start", { withTimezone: true }),
+    actualEnd: timestamp("actual_end", { withTimezone: true }),
+    isMultiDay: boolean("is_multi_day").notNull().default(false),
+    minimumChargeHours: numeric("minimum_charge_hours", { precision: 6, scale: 2 }),
+    externalNotes: text("external_notes"),
+    internalNotes: text("internal_notes"),
+    cancellationReason: text("cancellation_reason"),
+    metadata: jsonb("metadata"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("jobs_job_type_id_idx").on(table.jobTypeId),
+    index("jobs_customer_id_idx").on(table.customerId),
+    index("jobs_project_id_idx").on(table.projectId),
+    index("jobs_status_idx").on(table.status),
+    index("jobs_priority_idx").on(table.priority),
+    index("jobs_scheduled_start_idx").on(table.scheduledStart),
+  ],
+);
+
+// ── Job Locations ──
+
+export const jobLocations = pgTable(
+  "job_locations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    locationType: varchar("location_type", { length: 10 }).notNull(),
+    addressId: uuid("address_id")
+      .notNull()
+      .references(() => addresses.id),
+    entryPointId: uuid("entry_point_id").references(() => entryPoints.id),
+    sequence: integer("sequence").notNull().default(0),
+    contactName: varchar("contact_name", { length: 255 }),
+    contactPhone: varchar("contact_phone", { length: 20 }),
+    instructions: text("instructions"),
+    tipFee: numeric("tip_fee", { precision: 12, scale: 2 }),
+    arrivalTime: timestamp("arrival_time", { withTimezone: true }),
+    departureTime: timestamp("departure_time", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("job_locations_job_id_idx").on(table.jobId),
+    index("job_locations_address_id_idx").on(table.addressId),
+  ],
+);
+
+// ── Job Materials (snapshots) ──
+
+export const jobMaterials = pgTable(
+  "job_materials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    materialSourceType: varchar("material_source_type", { length: 20 }).notNull(),
+    materialSourceId: uuid("material_source_id").notNull(),
+    materialNameSnapshot: varchar("material_name_snapshot", { length: 255 }).notNull(),
+    materialCategorySnapshot: varchar("material_category_snapshot", { length: 100 }),
+    materialComplianceSnapshot: jsonb("material_compliance_snapshot").$type<{
+      isHazardous: boolean;
+      isRegulatedWaste: boolean;
+      isDangerousGoods: boolean;
+      requiresTracking: boolean;
+      requiresAuthority: boolean;
+      unNumber?: string;
+      dgClass?: string;
+      packingGroup?: string;
+      wasteCode?: string;
+      epaCategory?: string;
+    }>(),
+    quantity: numeric("quantity", { precision: 12, scale: 4 }),
+    unitOfMeasure: varchar("unit_of_measure", { length: 20 }),
+    flowType: varchar("flow_type", { length: 20 }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("job_materials_job_id_idx").on(table.jobId),
+  ],
+);
+
+// ── Job Asset Requirements ──
+
+export const jobAssetRequirements = pgTable(
+  "job_asset_requirements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    assetCategoryId: uuid("asset_category_id")
+      .notNull()
+      .references(() => assetCategories.id),
+    assetSubcategoryId: uuid("asset_subcategory_id").references(
+      () => assetSubcategories.id,
+    ),
+    quantity: integer("quantity").notNull().default(1),
+    payloadLimit: numeric("payload_limit", { precision: 10, scale: 2 }),
+    specialRequirements: text("special_requirements"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("job_asset_requirements_job_id_idx").on(table.jobId),
+    index("job_asset_requirements_category_id_idx").on(table.assetCategoryId),
+  ],
+);
+
+// ── Job Pricing Lines ──
+
+export const jobPricingLines = pgTable(
+  "job_pricing_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    lineType: varchar("line_type", { length: 10 }).notNull(),
+    partyId: uuid("party_id").references(() => companies.id),
+    partyName: varchar("party_name", { length: 255 }),
+    category: varchar("category", { length: 20 }).notNull(),
+    description: text("description"),
+    rateType: varchar("rate_type", { length: 20 }).notNull(),
+    quantity: numeric("quantity", { precision: 12, scale: 4 }).notNull().default("0"),
+    unitRate: numeric("unit_rate", { precision: 12, scale: 4 }).notNull().default("0"),
+    total: numeric("total", { precision: 14, scale: 2 }).notNull().default("0"),
+    isLocked: boolean("is_locked").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("job_pricing_lines_job_id_idx").on(table.jobId),
+    index("job_pricing_lines_line_type_idx").on(table.lineType),
+  ],
+);
+
+// ── Job Status History ──
+
+export const jobStatusHistory = pgTable(
+  "job_status_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    fromStatus: varchar("from_status", { length: 20 }),
+    toStatus: varchar("to_status", { length: 20 }).notNull(),
+    changedBy: text("changed_by").notNull(),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("job_status_history_job_id_idx").on(table.jobId),
+  ],
+);
+
 // ── Roles & Permissions ──
 
 export const roles = pgTable("roles", {

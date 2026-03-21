@@ -1164,4 +1164,25 @@ Every architectural, product, and workflow decision is recorded here with ration
 **Rationale:** OpShield is the source of truth for billing/entitlements, but Nexum shouldn't break if OpShield is temporarily unavailable. The local fallback ensures graceful degradation. Cache invalidation happens via existing webhooks.
 **Alternatives considered:** Only local check (rejected — would drift from OpShield's billing state). Only OpShield check without cache (rejected — too many API calls per request).
 
+### DEC-164: Job status lifecycle with transition validation
+**Date:** 2026-03-21
+**Context:** Jobs move through a lifecycle (draft → quoted → confirmed → in_progress → completed → invoiced). Some transitions should be blocked (e.g. can't go from draft directly to invoiced), and some require a reason (e.g. cancellation).
+**Decision:** Implement a shared `job-lifecycle.ts` module with a `VALID_TRANSITIONS` map and `REASON_REQUIRED_TRANSITIONS` set. Status changes go through a dedicated `POST /:id/status` endpoint (not via PUT). Auto-set `actualStart` on transition to in_progress, `actualEnd` on completed. Lock all pricing lines when job transitions to invoiced.
+**Rationale:** Separating status from general updates prevents accidental status changes. The shared module ensures frontend and backend agree on valid transitions. Auto-timestamps reduce manual data entry. Pricing lock on invoiced prevents retroactive changes that would desync with invoices.
+**Alternatives considered:** Free-form status updates via PUT (rejected — no lifecycle enforcement). Status machine library (rejected — overkill for a linear lifecycle with few branches).
+
+### DEC-165: Material snapshot on job creation
+**Date:** 2026-03-21
+**Context:** When a material is added to a job, the material's name, category, and compliance data could change later in the source table. Job records need to reflect what was true at the time of quoting/booking.
+**Decision:** When adding a material to a job, snapshot the material name, category, and compliance data from the source table (tenant/supplier/customer/disposal) into `job_materials`. The snapshot is immutable — changes to the source material don't affect existing jobs.
+**Rationale:** Jobs may be invoiced months after creation. If a material's compliance classification changes, existing jobs should reflect the original classification for audit and legal purposes.
+**Alternatives considered:** FK reference only (rejected — retroactive changes break audit trail). Copy all fields (rejected — only name, category, and compliance are needed for job context).
+
+### DEC-166: Job types drive form behaviour
+**Date:** 2026-03-21
+**Context:** Different job types (Transport, Disposal, Hire, On-site) need different form sections. A hire job doesn't need pickup/delivery locations. A transport job doesn't need the same fields as on-site work.
+**Decision:** Job types have a `visibleSections` JSONB field that controls which sections appear on the job form (locations, materials, assetRequirements, pricing, scheduling). The frontend reads this to show/hide sections. System defaults are seeded.
+**Rationale:** Keeps the job form clean and relevant to the work being done. Tenants can customize job types to match their operations.
+**Alternatives considered:** Separate tables per job type (rejected — too much duplication). Single form with all sections always visible (rejected — cluttered UX for simple job types).
+
 ---

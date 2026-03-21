@@ -25,6 +25,12 @@ import { AssetDetailPage } from "@frontend/pages/assets/detail.js";
 import { MaterialsPage } from "@frontend/pages/materials/index.js";
 import { CreateMaterialPage } from "@frontend/pages/materials/create.js";
 import { MaterialDetailPage } from "@frontend/pages/materials/detail.js";
+import { JobsPage } from "@frontend/pages/jobs/index.js";
+import { CreateJobPage } from "@frontend/pages/jobs/create.js";
+import { JobDetailPage } from "@frontend/pages/jobs/detail.js";
+import { ProjectsPage } from "@frontend/pages/projects/index.js";
+import { CreateProjectPage } from "@frontend/pages/projects/create.js";
+import { ProjectDetailPage } from "@frontend/pages/projects/detail.js";
 
 export function App(): React.JSX.Element {
   return (
@@ -63,6 +69,12 @@ export function App(): React.JSX.Element {
         <Route path="materials" element={<MaterialsPage />} />
         <Route path="materials/new" element={<CreateMaterialPage />} />
         <Route path="materials/:sourceType/:id" element={<MaterialDetailPage />} />
+        <Route path="jobs" element={<JobsPage />} />
+        <Route path="jobs/new" element={<CreateJobPage />} />
+        <Route path="jobs/:id" element={<JobDetailPage />} />
+        <Route path="projects" element={<ProjectsPage />} />
+        <Route path="projects/new" element={<CreateProjectPage />} />
+        <Route path="projects/:id" element={<ProjectDetailPage />} />
       </Route>
 
       {/* Default redirect */}

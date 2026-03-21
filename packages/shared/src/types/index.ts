@@ -49,6 +49,24 @@ import type {
   updateDisposalMaterialSchema,
   createDisposalSiteSettingsSchema,
   updateDisposalSiteSettingsSchema,
+  createJobTypeSchema,
+  updateJobTypeSchema,
+  createProjectSchema,
+  updateProjectSchema,
+  createJobSchema,
+  updateJobSchema,
+  jobStatusTransitionSchema,
+  createJobLocationSchema,
+  updateJobLocationSchema,
+  createJobMaterialSchema,
+  updateJobMaterialSchema,
+  createJobAssetRequirementSchema,
+  updateJobAssetRequirementSchema,
+  createJobPricingLineSchema,
+  updateJobPricingLineSchema,
+  jobTypeVisibleSectionsSchema,
+  jobTypeRequiredFieldsSchema,
+  jobTypeDefaultsSchema,
 } from "../schemas/index.js";
 
 // ── Base Types ──
@@ -149,6 +167,33 @@ export type CreateDisposalMaterialInput = z.infer<typeof createDisposalMaterialS
 export type UpdateDisposalMaterialInput = z.infer<typeof updateDisposalMaterialSchema>;
 export type CreateDisposalSiteSettingsInput = z.infer<typeof createDisposalSiteSettingsSchema>;
 export type UpdateDisposalSiteSettingsInput = z.infer<typeof updateDisposalSiteSettingsSchema>;
+
+// ── Job Type Types ──
+
+export type CreateJobTypeInput = z.infer<typeof createJobTypeSchema>;
+export type UpdateJobTypeInput = z.infer<typeof updateJobTypeSchema>;
+export type JobTypeVisibleSections = z.infer<typeof jobTypeVisibleSectionsSchema>;
+export type JobTypeRequiredFields = z.infer<typeof jobTypeRequiredFieldsSchema>;
+export type JobTypeDefaults = z.infer<typeof jobTypeDefaultsSchema>;
+
+// ── Project Types ──
+
+export type CreateProjectInput = z.infer<typeof createProjectSchema>;
+export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+
+// ── Job Types ──
+
+export type CreateJobInput = z.infer<typeof createJobSchema>;
+export type UpdateJobInput = z.infer<typeof updateJobSchema>;
+export type JobStatusTransition = z.infer<typeof jobStatusTransitionSchema>;
+export type CreateJobLocationInput = z.infer<typeof createJobLocationSchema>;
+export type UpdateJobLocationInput = z.infer<typeof updateJobLocationSchema>;
+export type CreateJobMaterialInput = z.infer<typeof createJobMaterialSchema>;
+export type UpdateJobMaterialInput = z.infer<typeof updateJobMaterialSchema>;
+export type CreateJobAssetRequirementInput = z.infer<typeof createJobAssetRequirementSchema>;
+export type UpdateJobAssetRequirementInput = z.infer<typeof updateJobAssetRequirementSchema>;
+export type CreateJobPricingLineInput = z.infer<typeof createJobPricingLineSchema>;
+export type UpdateJobPricingLineInput = z.infer<typeof updateJobPricingLineSchema>;
 
 // ── Tenant Context (used by middleware) ──
 

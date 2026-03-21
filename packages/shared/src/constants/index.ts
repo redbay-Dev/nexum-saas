@@ -71,14 +71,65 @@ export type CompanyStatus = (typeof COMPANY_STATUSES)[number];
 export const JOB_STATUSES = [
   "draft",
   "quoted",
+  "scheduled",
   "confirmed",
   "in_progress",
   "completed",
   "invoiced",
   "cancelled",
+  "declined",
 ] as const;
 
 export type JobStatus = (typeof JOB_STATUSES)[number];
+
+// ── Job Priorities ──
+export const JOB_PRIORITIES = ["low", "medium", "high"] as const;
+
+export type JobPriority = (typeof JOB_PRIORITIES)[number];
+
+// ── Job Location Types ──
+export const JOB_LOCATION_TYPES = ["pickup", "delivery"] as const;
+
+export type JobLocationType = (typeof JOB_LOCATION_TYPES)[number];
+
+// ── Job Pricing Line Types ──
+export const JOB_PRICING_LINE_TYPES = ["revenue", "cost"] as const;
+
+export type JobPricingLineType = (typeof JOB_PRICING_LINE_TYPES)[number];
+
+// ── Job Pricing Rate Types ──
+export const JOB_PRICING_RATE_TYPES = [
+  "per_hour",
+  "per_tonne",
+  "per_cubic_metre",
+  "per_km",
+  "per_load",
+  "flat",
+] as const;
+
+export type JobPricingRateType = (typeof JOB_PRICING_RATE_TYPES)[number];
+
+// ── Job Pricing Categories ──
+export const JOB_PRICING_CATEGORIES = [
+  "hire",
+  "cartage",
+  "tip_fee",
+  "material",
+  "subcontractor",
+  "fuel_levy",
+  "other",
+] as const;
+
+export type JobPricingCategory = (typeof JOB_PRICING_CATEGORIES)[number];
+
+// ── Project Statuses ──
+export const PROJECT_STATUSES = [
+  "active",
+  "completed",
+  "on_hold",
+] as const;
+
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
 // ── Invoice States ──
 export const INVOICE_STATUSES = [

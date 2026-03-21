@@ -1,7 +1,9 @@
 import { Outlet, NavLink, useLocation } from "react-router";
 import {
+  Briefcase,
   Building2,
   ChevronRight,
+  FolderKanban,
   Globe,
   LayoutDashboard,
   LogOut,
@@ -54,6 +56,8 @@ const CORE_NAV: NavItem[] = [
 ];
 
 const OPERATIONS_NAV: NavItem[] = [
+  { to: "/jobs", label: "Jobs", icon: Briefcase },
+  { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/companies", label: "Companies", icon: Building2 },
   { to: "/contacts", label: "Contacts", icon: UserRound },
   { to: "/addresses", label: "Addresses", icon: MapPin },
@@ -65,6 +69,10 @@ const OPERATIONS_NAV: NavItem[] = [
 
 const BREADCRUMB_MAP: Record<string, string> = {
   "/": "Dashboard",
+  "/jobs": "Jobs",
+  "/jobs/new": "New Job",
+  "/projects": "Projects",
+  "/projects/new": "New Project",
   "/companies": "Companies",
   "/companies/new": "Add Company",
   "/contacts": "Contacts",
@@ -124,21 +132,25 @@ export function AppShell(): React.JSX.Element {
 
   const pageTitle =
     BREADCRUMB_MAP[location.pathname] ??
-    (location.pathname.startsWith("/companies/")
-      ? "Company Detail"
-      : location.pathname.startsWith("/contacts/")
-        ? "Contact Detail"
-        : location.pathname.startsWith("/addresses/")
-          ? "Address Detail"
-          : location.pathname.startsWith("/regions/")
-            ? "Region Detail"
-            : location.pathname.startsWith("/employees/")
-              ? "Employee Detail"
-              : location.pathname.startsWith("/assets/")
-                ? "Asset Detail"
-                : location.pathname.startsWith("/materials/")
-                  ? "Material Detail"
-                  : "Nexum");
+    (location.pathname.startsWith("/jobs/")
+      ? "Job Detail"
+      : location.pathname.startsWith("/projects/")
+        ? "Project Detail"
+        : location.pathname.startsWith("/companies/")
+          ? "Company Detail"
+          : location.pathname.startsWith("/contacts/")
+            ? "Contact Detail"
+            : location.pathname.startsWith("/addresses/")
+              ? "Address Detail"
+              : location.pathname.startsWith("/regions/")
+                ? "Region Detail"
+                : location.pathname.startsWith("/employees/")
+                  ? "Employee Detail"
+                  : location.pathname.startsWith("/assets/")
+                    ? "Asset Detail"
+                    : location.pathname.startsWith("/materials/")
+                      ? "Material Detail"
+                      : "Nexum");
 
   async function handleSignOut(): Promise<void> {
     // signOut() clears the local cookie and redirects to OpShield login

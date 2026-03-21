@@ -15,6 +15,9 @@ import { assetCategoryRoutes } from "./routes/asset-categories.js";
 import { assetRoutes } from "./routes/assets.js";
 import { materialCategoryRoutes } from "./routes/material-categories.js";
 import { materialRoutes } from "./routes/materials.js";
+import { jobTypeRoutes } from "./routes/job-types.js";
+import { projectRoutes } from "./routes/projects.js";
+import { jobRoutes } from "./routes/jobs.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 
 /**
@@ -107,6 +110,9 @@ export function buildApp(): ReturnType<typeof Fastify> {
         prefix: "/material-categories",
       });
       void api.register(materialRoutes, { prefix: "/materials" });
+      void api.register(jobTypeRoutes, { prefix: "/job-types" });
+      void api.register(projectRoutes, { prefix: "/projects" });
+      void api.register(jobRoutes, { prefix: "/jobs" });
     },
     { prefix: "/api/v1" },
   );

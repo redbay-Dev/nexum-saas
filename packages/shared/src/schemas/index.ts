@@ -11,6 +11,12 @@ import {
   EMPLOYMENT_TYPES,
   LICENCE_CLASSES,
   JOB_STATUSES,
+  JOB_PRIORITIES,
+  JOB_LOCATION_TYPES,
+  JOB_PRICING_LINE_TYPES,
+  JOB_PRICING_RATE_TYPES,
+  JOB_PRICING_CATEGORIES,
+  PROJECT_STATUSES,
   INVOICE_STATUSES,
   RCTI_STATUSES,
   DAYSHEET_STATUSES,
@@ -299,6 +305,155 @@ export const updateQualificationSchema = createQualificationSchema.omit({ employ
 // ── Job Schemas ──
 
 export const jobStatusSchema = z.enum(JOB_STATUSES);
+export const jobPrioritySchema = z.enum(JOB_PRIORITIES);
+export const jobLocationTypeSchema = z.enum(JOB_LOCATION_TYPES);
+export const jobPricingLineTypeSchema = z.enum(JOB_PRICING_LINE_TYPES);
+export const jobPricingRateTypeSchema = z.enum(JOB_PRICING_RATE_TYPES);
+export const jobPricingCategorySchema = z.enum(JOB_PRICING_CATEGORIES);
+export const projectStatusSchema = z.enum(PROJECT_STATUSES);
+
+/** JSONB sub-schema: which sections are visible for a job type. */
+export const jobTypeVisibleSectionsSchema = z.object({
+  locations: z.boolean().default(true),
+  materials: z.boolean().default(true),
+  assetRequirements: z.boolean().default(true),
+  pricing: z.boolean().default(true),
+  scheduling: z.boolean().default(true),
+});
+
+/** JSONB sub-schema: which fields are required for a job type. */
+export const jobTypeRequiredFieldsSchema = z.object({
+  poNumber: z.boolean().default(false),
+  materials: z.boolean().default(false),
+  locations: z.boolean().default(false),
+});
+
+/** JSONB sub-schema: default values for a job type. */
+export const jobTypeDefaultsSchema = z.object({
+  priority: jobPrioritySchema.optional(),
+  durationHours: z.number().positive().optional(),
+  assetCategoryId: z.uuid().optional(),
+});
+
+/** Create a job type (tenant-configurable). */
+export const createJobTypeSchema = z.object({
+  name: z.string().min(1).max(100),
+  code: z.string().min(1).max(20),
+  description: z.string().max(500).optional(),
+  isSystem: z.boolean().default(false),
+  visibleSections: jobTypeVisibleSectionsSchema.optional(),
+  requiredFields: jobTypeRequiredFieldsSchema.optional(),
+  availablePricingMethods: z.array(jobPricingRateTypeSchema).optional(),
+  defaults: jobTypeDefaultsSchema.optional(),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const updateJobTypeSchema = createJobTypeSchema
+  .omit({ isSystem: true })
+  .partial();
+
+/** Create a project (optional job grouping). */
+export const createProjectSchema = z.object({
+  name: z.string().min(1).max(255),
+  customerId: z.uuid().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  salesRepId: z.uuid().optional(),
+  projectLeadId: z.uuid().optional(),
+  status: projectStatusSchema.default("active"),
+  notes: z.string().optional(),
+});
+
+export const updateProjectSchema = createProjectSchema.partial();
+
+/** Create a job. */
+export const createJobSchema = z.object({
+  name: z.string().min(1).max(255),
+  jobTypeId: z.uuid(),
+  customerId: z.uuid().optional(),
+  projectId: z.uuid().optional(),
+  poNumber: z.string().max(100).optional(),
+  priority: jobPrioritySchema.default("medium"),
+  salesRepId: z.uuid().optional(),
+  jobLeadId: z.uuid().optional(),
+  scheduledStart: z.string().optional(),
+  scheduledEnd: z.string().optional(),
+  isMultiDay: z.boolean().default(false),
+  minimumChargeHours: z.number().min(0).optional(),
+  externalNotes: z.string().optional(),
+  internalNotes: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const updateJobSchema = createJobSchema.partial();
+
+/** Transition a job's status. */
+export const jobStatusTransitionSchema = z.object({
+  status: jobStatusSchema,
+  reason: z.string().optional(),
+});
+
+/** Create a job location. */
+export const createJobLocationSchema = z.object({
+  locationType: jobLocationTypeSchema,
+  addressId: z.uuid(),
+  entryPointId: z.uuid().optional(),
+  sequence: z.number().int().min(0).default(0),
+  contactName: z.string().max(255).optional(),
+  contactPhone: z.string().max(20).optional(),
+  instructions: z.string().optional(),
+  tipFee: z.number().min(0).optional(),
+  arrivalTime: z.string().optional(),
+  departureTime: z.string().optional(),
+});
+
+export const updateJobLocationSchema = createJobLocationSchema.partial();
+
+/** Create a job material (snapshot). */
+export const createJobMaterialSchema = z.object({
+  materialSourceType: z.enum(MATERIAL_SOURCE_TYPES),
+  materialSourceId: z.uuid(),
+  quantity: z.number().min(0).optional(),
+  unitOfMeasure: z.enum(UNITS_OF_MEASURE).optional(),
+  flowType: z.enum(MATERIAL_FLOW_TYPES).optional(),
+  notes: z.string().optional(),
+});
+
+export const updateJobMaterialSchema = z.object({
+  quantity: z.number().min(0).optional(),
+  unitOfMeasure: z.enum(UNITS_OF_MEASURE).optional(),
+  flowType: z.enum(MATERIAL_FLOW_TYPES).optional(),
+  notes: z.string().optional(),
+});
+
+/** Create a job asset requirement. */
+export const createJobAssetRequirementSchema = z.object({
+  assetCategoryId: z.uuid(),
+  assetSubcategoryId: z.uuid().optional(),
+  quantity: z.number().int().min(1).default(1),
+  payloadLimit: z.number().positive().optional(),
+  specialRequirements: z.string().optional(),
+});
+
+export const updateJobAssetRequirementSchema = createJobAssetRequirementSchema.partial();
+
+/** Create a job pricing line. */
+export const createJobPricingLineSchema = z.object({
+  lineType: jobPricingLineTypeSchema,
+  partyId: z.uuid().optional(),
+  partyName: z.string().max(255).optional(),
+  category: jobPricingCategorySchema,
+  description: z.string().max(500).optional(),
+  rateType: jobPricingRateTypeSchema,
+  quantity: z.number().min(0).default(0),
+  unitRate: z.number().min(0).default(0),
+  total: z.number().min(0).default(0),
+  isLocked: z.boolean().default(false),
+  sortOrder: z.number().int().min(0).default(0),
+});
+
+export const updateJobPricingLineSchema = createJobPricingLineSchema.partial();
 
 // ── Invoice Schemas ──
 

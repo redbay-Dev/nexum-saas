@@ -2,6 +2,91 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.9.0] — 2026-03-21
+
+### Job System (Doc 06) — Foundation Implementation
+
+**What was built:**
+
+Shared package — new constants, lifecycle module, and schemas:
+- Job statuses updated: added "scheduled" and "declined" to lifecycle
+- New constants: JOB_PRIORITIES, JOB_LOCATION_TYPES, JOB_PRICING_LINE_TYPES, JOB_PRICING_RATE_TYPES, JOB_PRICING_CATEGORIES, PROJECT_STATUSES
+- `job-lifecycle.ts` — Status transition validation (isValidTransition, requiresReason, getValidTransitions) with full forward/backward transition map
+- 16 new Zod schemas: job types (with JSONB sub-schemas for visibleSections, requiredFields, defaults), projects, jobs, job status transitions, job locations, job materials, job asset requirements, job pricing lines + all update variants
+- TypeScript types derived from all new schemas
+
+Backend — 8 new DB tables (migration 0004):
+- `job_types` — Tenant-configurable with code uniqueness, visible sections, required fields, available pricing methods, defaults. System defaults seeded: Transport, Disposal, Hire, On-site
+- `projects` — Optional job grouping with auto-generated project numbers (YYYY-PXXX), customer FK, sales rep, project lead
+- `jobs` — Core job record with auto-generated job numbers (YYYY-XXXX), job type FK, customer FK, project FK, priority, scheduling timestamps, multi-day support, minimum charge hours, internal/external notes, cancellation reason, metadata JSONB
+- `job_locations` — Pickup/delivery locations per job with address/entry point FKs, tip fee, arrival/departure times
+- `job_materials` — Material snapshots copied from source tables on add (name, category, compliance JSONB preserved at time of addition)
+- `job_asset_requirements` — Asset category/subcategory requirements with quantity and payload limit
+- `job_pricing_lines` — Revenue/cost lines with rate type, quantity, unit rate, authoritative total, lock flag
+- `job_status_history` — Full audit trail of every status transition with reason
+
+Backend — 3 new route files:
+- `routes/job-types.ts` — Full CRUD with unique code validation, system type deletion protection
+- `routes/projects.ts` — Full CRUD with auto-numbering, customer validation
+- `routes/jobs.ts` — Core CRUD (create/update/delete) + dedicated status transition endpoint (POST /:id/status) with lifecycle validation, auto-timestamp setting, pricing lock on invoiced + sub-resource CRUD for locations, materials (with snapshot), asset requirements, pricing lines (with lock protection)
+
+Frontend — 3 API hook files:
+- `api/job-types.ts` — Query key factory + CRUD hooks
+- `api/projects.ts` — Query key factory + CRUD hooks
+- `api/jobs.ts` — Query key factory + CRUD/status hooks + 8 sub-resource mutation hooks (create/delete for locations, materials, asset requirements, pricing lines)
+
+Frontend — 6 new pages:
+- `pages/jobs/index.tsx` — Job list with status tabs (9 statuses), priority filter, job type filter, search, table with job#/name/type/customer/status/priority/date
+- `pages/jobs/create.tsx` — Multi-section form driven by job type visibleSections, customer/project select, scheduling, notes
+- `pages/jobs/detail.tsx` — Full detail view with edit toggle, status transition controls with reason dialog, inline sub-resource tables (locations with address, materials with snapshot, asset requirements, pricing with revenue/cost/margin calculation), status history timeline
+- `pages/projects/index.tsx` — Project list with status filter, search, table
+- `pages/projects/create.tsx` — Simple form with customer select, dates, notes
+- `pages/projects/detail.tsx` — Detail with edit toggle, linked jobs table
+
+Navigation:
+- Jobs (Briefcase icon) and Projects (FolderKanban icon) added to OPERATIONS_NAV at top of list
+- Breadcrumb map updated for all new routes
+- 6 new routes registered in App.tsx
+
+**Business logic highlights:**
+- Status lifecycle enforced: draft → quoted/scheduled/confirmed, confirmed → in_progress, etc. Reason required for cancellations, reversals
+- actualStart auto-set on transition to in_progress, actualEnd on completed
+- Pricing lines locked (isLocked=true) when job transitions to invoiced
+- Invoiced jobs cannot be edited or deleted
+- Material snapshot captures name, category, and compliance data at time of addition — source changes don't retroactively affect jobs
+- Job types drive form behaviour via visibleSections (locations, materials, assetRequirements, pricing, scheduling)
+
+**All checks pass:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — all passing
+- `pnpm build` — all packages build
+
+**Known issues:**
+- None discovered
+
+**What's STILL MISSING from the Job System spec (Doc 06):**
+- Job assignments/allocations (assigning drivers and assets to jobs) — deferred
+- Multi-customer billing on a single job — deferred
+- Parent/child job relationships — deferred
+- Job cloning — deferred
+- Variation tracking — deferred
+- Custom statuses beyond the system defaults — deferred
+- Compliance gates (blocking transitions if SafeSpec checks fail) — deferred
+- Real-time collaboration / WebSocket updates — deferred
+- SMS notifications on status changes — deferred
+- AI-powered features (auto-pricing, demand prediction) — deferred
+- Docket restrictions on jobs — deferred
+- Add forms for sub-resources from the job detail page (currently inline tables show existing, but add dialogs not yet built — user must use API directly or future UI)
+- Job type settings page (admin UI to manage job types) — not yet built
+- Bulk status operations — not yet built
+
+**What's next:**
+- Build add-resource dialogs on job detail page (add location, add material, add asset requirement, add pricing line)
+- Job type settings/admin page
+- Job assignments/allocations (assigning specific drivers and assets to confirmed jobs) — this is the next major feature
+- Scheduling view (calendar/timeline showing jobs across dates)
+
 ## [0.8.0] — 2026-03-21
 
 ### Materials & Disposal (Doc 05) — Full CRUD Implementation
