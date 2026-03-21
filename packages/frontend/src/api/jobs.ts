@@ -96,6 +96,31 @@ export interface JobPricingLine {
   updatedAt: string;
 }
 
+export interface JobAssignment {
+  id: string;
+  jobId: string;
+  assignmentType: string;
+  assetId: string | null;
+  employeeId: string | null;
+  contractorCompanyId: string | null;
+  requirementId: string | null;
+  status: string;
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  actualStart: string | null;
+  actualEnd: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // Joined
+  assetRegistration: string | null;
+  assetMake: string | null;
+  assetModel: string | null;
+  assetNumber: string | null;
+  employeeName: string | null;
+  contractorName: string | null;
+}
+
 export interface JobStatusHistoryEntry {
   id: string;
   jobId: string;
@@ -127,6 +152,7 @@ export interface JobDetail extends JobListItem {
   materials: JobMaterial[];
   assetRequirements: JobAssetRequirement[];
   pricingLines: JobPricingLine[];
+  assignments: JobAssignment[];
   statusHistory: JobStatusHistoryEntry[];
 }
 
@@ -367,6 +393,47 @@ export function useDeleteJobPricingLine(
   return useMutation({
     mutationFn: (subId: string) =>
       api.delete<{ id: string }>(`/api/v1/jobs/${jobId}/pricing-lines/${subId}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: jobKeys.detail(jobId) });
+    },
+  });
+}
+
+// ── Assignment mutations ──
+
+export function useCreateJobAssignment(
+  jobId: string,
+): ReturnType<typeof useMutation<JobAssignment, Error, Record<string, unknown>>> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      api.post<JobAssignment>(`/api/v1/jobs/${jobId}/assignments`, data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: jobKeys.detail(jobId) });
+    },
+  });
+}
+
+export function useUpdateJobAssignment(
+  jobId: string,
+): ReturnType<typeof useMutation<JobAssignment, Error, { subId: string; data: Record<string, unknown> }>> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ subId, data }: { subId: string; data: Record<string, unknown> }) =>
+      api.put<JobAssignment>(`/api/v1/jobs/${jobId}/assignments/${subId}`, data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: jobKeys.detail(jobId) });
+    },
+  });
+}
+
+export function useDeleteJobAssignment(
+  jobId: string,
+): ReturnType<typeof useMutation<{ id: string }, Error, string>> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (subId: string) =>
+      api.delete<{ id: string }>(`/api/v1/jobs/${jobId}/assignments/${subId}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: jobKeys.detail(jobId) });
     },

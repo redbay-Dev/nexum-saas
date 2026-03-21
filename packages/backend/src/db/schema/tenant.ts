@@ -920,6 +920,48 @@ export const jobPricingLines = pgTable(
   ],
 );
 
+// ── Job Assignments (actual allocations of assets/drivers/contractors) ──
+
+export const jobAssignments = pgTable(
+  "job_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    assignmentType: varchar("assignment_type", { length: 20 }).notNull(), // asset, driver, contractor
+    assetId: uuid("asset_id").references(() => assets.id),
+    employeeId: uuid("employee_id").references(() => employees.id),
+    contractorCompanyId: uuid("contractor_company_id").references(
+      () => companies.id,
+    ),
+    requirementId: uuid("requirement_id").references(
+      () => jobAssetRequirements.id,
+    ),
+    status: varchar("status", { length: 20 }).notNull().default("assigned"),
+    plannedStart: timestamp("planned_start", { withTimezone: true }),
+    plannedEnd: timestamp("planned_end", { withTimezone: true }),
+    actualStart: timestamp("actual_start", { withTimezone: true }),
+    actualEnd: timestamp("actual_end", { withTimezone: true }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("job_assignments_job_id_idx").on(table.jobId),
+    index("job_assignments_asset_id_idx").on(table.assetId),
+    index("job_assignments_employee_id_idx").on(table.employeeId),
+    index("job_assignments_contractor_company_id_idx").on(
+      table.contractorCompanyId,
+    ),
+    index("job_assignments_status_idx").on(table.status),
+  ],
+);
+
 // ── Job Status History ──
 
 export const jobStatusHistory = pgTable(

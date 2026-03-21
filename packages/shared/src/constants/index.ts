@@ -122,6 +122,25 @@ export const JOB_PRICING_CATEGORIES = [
 
 export type JobPricingCategory = (typeof JOB_PRICING_CATEGORIES)[number];
 
+// ── Job Assignment Types ──
+export const JOB_ASSIGNMENT_TYPES = [
+  "asset",
+  "driver",
+  "contractor",
+] as const;
+
+export type JobAssignmentType = (typeof JOB_ASSIGNMENT_TYPES)[number];
+
+// ── Job Assignment Statuses ──
+export const JOB_ASSIGNMENT_STATUSES = [
+  "assigned",
+  "in_progress",
+  "completed",
+  "cancelled",
+] as const;
+
+export type JobAssignmentStatus = (typeof JOB_ASSIGNMENT_STATUSES)[number];
+
 // ── Project Statuses ──
 export const PROJECT_STATUSES = [
   "active",

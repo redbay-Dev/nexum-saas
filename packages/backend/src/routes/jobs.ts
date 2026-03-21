@@ -11,10 +11,13 @@ import {
   jobAssetRequirements,
   jobPricingLines,
   jobStatusHistory,
+  jobAssignments,
   addresses,
   entryPoints,
   assetCategories,
   assetSubcategories,
+  assets,
+  employees,
   tenantMaterials,
   supplierMaterials,
   customerMaterials,
@@ -33,6 +36,8 @@ import {
   updateJobAssetRequirementSchema,
   createJobPricingLineSchema,
   updateJobPricingLineSchema,
+  createJobAssignmentSchema,
+  updateJobAssignmentSchema,
   idParamSchema,
   paginationQuerySchema,
   isValidTransition,
@@ -206,7 +211,7 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       }
 
       // Fetch all sub-resources in parallel
-      const [locations, materials, assetReqs, pricingLines, statusHistory] = await Promise.all([
+      const [locations, materials, assetReqs, pricingLines, assignments, statusHistory] = await Promise.all([
         ctx.tenantDb
           .select({
             location: jobLocations,
@@ -244,6 +249,24 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
           .orderBy(jobPricingLines.sortOrder),
 
         ctx.tenantDb
+          .select({
+            assignment: jobAssignments,
+            assetRegistration: assets.registrationNumber,
+            assetMake: assets.make,
+            assetModel: assets.model,
+            assetNumber: assets.assetNumber,
+            employeeFirstName: employees.firstName,
+            employeeLastName: employees.lastName,
+            contractorName: companies.name,
+          })
+          .from(jobAssignments)
+          .leftJoin(assets, eq(jobAssignments.assetId, assets.id))
+          .leftJoin(employees, eq(jobAssignments.employeeId, employees.id))
+          .leftJoin(companies, eq(jobAssignments.contractorCompanyId, companies.id))
+          .where(eq(jobAssignments.jobId, id))
+          .orderBy(jobAssignments.createdAt),
+
+        ctx.tenantDb
           .select()
           .from(jobStatusHistory)
           .where(eq(jobStatusHistory.jobId, id))
@@ -274,6 +297,17 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
             subcategoryName: r.subcategoryName,
           })),
           pricingLines,
+          assignments: assignments.map((a) => ({
+            ...a.assignment,
+            assetRegistration: a.assetRegistration,
+            assetMake: a.assetMake,
+            assetModel: a.assetModel,
+            assetNumber: a.assetNumber,
+            employeeName: a.employeeFirstName && a.employeeLastName
+              ? `${a.employeeFirstName} ${a.employeeLastName}`
+              : null,
+            contractorName: a.contractorName,
+          })),
           statusHistory,
         },
       };
@@ -612,6 +646,20 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       }
       if (toStatus === "cancelled") {
         updateValues.cancellationReason = reason;
+
+        // Release all active assignments
+        await ctx.tenantDb
+          .update(jobAssignments)
+          .set({ status: "cancelled", updatedAt: new Date() })
+          .where(
+            and(
+              eq(jobAssignments.jobId, id),
+              or(
+                eq(jobAssignments.status, "assigned"),
+                eq(jobAssignments.status, "in_progress"),
+              ) ?? sql`TRUE`,
+            ),
+          );
       }
 
       // Lock pricing lines when invoiced
@@ -1288,6 +1336,295 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       }
 
       await ctx.tenantDb.delete(jobPricingLines).where(eq(jobPricingLines.id, subId));
+
+      return { success: true, data: { id: subId } };
+    },
+  );
+
+  // ── Job Assignments ──
+
+  /**
+   * POST /api/v1/jobs/:id/assignments
+   * Assign an asset, driver, or contractor to a job.
+   */
+  app.post(
+    "/:id/assignments",
+    { preHandler: requirePermission("manage:jobs") },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const ctx = tenant(request);
+
+      const paramsParsed = idParamSchema.safeParse(request.params);
+      if (!paramsParsed.success) {
+        return reply.status(400).send({ error: "Invalid job ID", code: "VALIDATION_ERROR" });
+      }
+
+      const bodyParsed = createJobAssignmentSchema.safeParse(request.body);
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          error: "Invalid assignment data",
+          code: "VALIDATION_ERROR",
+          details: bodyParsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const jobId = paramsParsed.data.id;
+      const input = bodyParsed.data;
+
+      // Verify job exists and is in an assignable status
+      const [job] = await ctx.tenantDb
+        .select({ id: jobs.id, status: jobs.status })
+        .from(jobs)
+        .where(and(eq(jobs.id, jobId), isNull(jobs.deletedAt)))
+        .limit(1);
+
+      if (!job) {
+        return reply.status(404).send({ error: "Job not found", code: "NOT_FOUND" });
+      }
+
+      if (job.status === "invoiced" || job.status === "cancelled") {
+        return reply.status(400).send({
+          error: `Cannot assign resources to a ${job.status} job`,
+          code: "JOB_LOCKED",
+        });
+      }
+
+      // Validate based on assignment type
+      if (input.assignmentType === "asset") {
+        if (!input.assetId) {
+          return reply.status(400).send({
+            error: "Asset ID is required for asset assignments",
+            code: "VALIDATION_ERROR",
+          });
+        }
+        const [asset] = await ctx.tenantDb
+          .select({ id: assets.id, status: assets.status })
+          .from(assets)
+          .where(and(eq(assets.id, input.assetId), isNull(assets.deletedAt)))
+          .limit(1);
+        if (!asset) {
+          return reply.status(400).send({
+            error: "Asset not found",
+            code: "INVALID_REFERENCE",
+          });
+        }
+        if (asset.status !== "available" && asset.status !== "in_use") {
+          return reply.status(400).send({
+            error: `Asset is not available (current status: ${asset.status})`,
+            code: "RESOURCE_UNAVAILABLE",
+          });
+        }
+      }
+
+      if (input.assignmentType === "driver") {
+        if (!input.employeeId) {
+          return reply.status(400).send({
+            error: "Employee ID is required for driver assignments",
+            code: "VALIDATION_ERROR",
+          });
+        }
+        const [employee] = await ctx.tenantDb
+          .select({ id: employees.id, isDriver: employees.isDriver, status: employees.status })
+          .from(employees)
+          .where(and(eq(employees.id, input.employeeId), isNull(employees.deletedAt)))
+          .limit(1);
+        if (!employee) {
+          return reply.status(400).send({
+            error: "Employee not found",
+            code: "INVALID_REFERENCE",
+          });
+        }
+        if (!employee.isDriver) {
+          return reply.status(400).send({
+            error: "Employee is not a driver",
+            code: "INVALID_REFERENCE",
+          });
+        }
+        if (employee.status !== "active") {
+          return reply.status(400).send({
+            error: `Driver is not active (current status: ${employee.status})`,
+            code: "RESOURCE_UNAVAILABLE",
+          });
+        }
+      }
+
+      if (input.assignmentType === "contractor") {
+        if (!input.contractorCompanyId) {
+          return reply.status(400).send({
+            error: "Contractor company ID is required for contractor assignments",
+            code: "VALIDATION_ERROR",
+          });
+        }
+        const [contractor] = await ctx.tenantDb
+          .select({ id: companies.id, isContractor: companies.isContractor })
+          .from(companies)
+          .where(and(eq(companies.id, input.contractorCompanyId), isNull(companies.deletedAt)))
+          .limit(1);
+        if (!contractor) {
+          return reply.status(400).send({
+            error: "Contractor company not found",
+            code: "INVALID_REFERENCE",
+          });
+        }
+        if (!contractor.isContractor) {
+          return reply.status(400).send({
+            error: "Company is not a contractor",
+            code: "INVALID_REFERENCE",
+          });
+        }
+      }
+
+      // Validate requirement reference if provided
+      if (input.requirementId) {
+        const [req] = await ctx.tenantDb
+          .select({ id: jobAssetRequirements.id })
+          .from(jobAssetRequirements)
+          .where(and(
+            eq(jobAssetRequirements.id, input.requirementId),
+            eq(jobAssetRequirements.jobId, jobId),
+          ))
+          .limit(1);
+        if (!req) {
+          return reply.status(400).send({
+            error: "Asset requirement not found on this job",
+            code: "INVALID_REFERENCE",
+          });
+        }
+      }
+
+      const id = crypto.randomUUID();
+      const [assignment] = await ctx.tenantDb
+        .insert(jobAssignments)
+        .values({
+          id,
+          jobId,
+          assignmentType: input.assignmentType,
+          assetId: input.assetId,
+          employeeId: input.employeeId,
+          contractorCompanyId: input.contractorCompanyId,
+          requirementId: input.requirementId,
+          status: "assigned",
+          plannedStart: input.plannedStart ? new Date(input.plannedStart) : undefined,
+          plannedEnd: input.plannedEnd ? new Date(input.plannedEnd) : undefined,
+          notes: input.notes,
+        })
+        .returning();
+
+      await ctx.tenantDb.insert(auditLog).values({
+        userId: ctx.userId,
+        action: "CREATE",
+        entityType: "job_assignment",
+        entityId: id,
+        newData: assignment,
+      });
+
+      return reply.status(201).send({ success: true, data: assignment });
+    },
+  );
+
+  /**
+   * PUT /api/v1/jobs/:id/assignments/:subId
+   * Update an assignment (status, times, notes).
+   */
+  app.put(
+    "/:id/assignments/:subId",
+    { preHandler: requirePermission("manage:jobs") },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const ctx = tenant(request);
+
+      const paramsParsed = subResourceParamSchema.safeParse(request.params);
+      if (!paramsParsed.success) {
+        return reply.status(400).send({ error: "Invalid parameters", code: "VALIDATION_ERROR" });
+      }
+
+      const bodyParsed = updateJobAssignmentSchema.safeParse(request.body);
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          error: "Invalid assignment data",
+          code: "VALIDATION_ERROR",
+          details: bodyParsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const { subId } = paramsParsed.data;
+      const input = bodyParsed.data;
+
+      const [existing] = await ctx.tenantDb
+        .select()
+        .from(jobAssignments)
+        .where(eq(jobAssignments.id, subId))
+        .limit(1);
+
+      if (!existing) {
+        return reply.status(404).send({ error: "Assignment not found", code: "NOT_FOUND" });
+      }
+
+      const updateValues: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.status !== undefined) updateValues.status = input.status;
+      if (input.plannedStart !== undefined)
+        updateValues.plannedStart = input.plannedStart ? new Date(input.plannedStart) : null;
+      if (input.plannedEnd !== undefined)
+        updateValues.plannedEnd = input.plannedEnd ? new Date(input.plannedEnd) : null;
+      if (input.actualStart !== undefined)
+        updateValues.actualStart = input.actualStart ? new Date(input.actualStart) : null;
+      if (input.actualEnd !== undefined)
+        updateValues.actualEnd = input.actualEnd ? new Date(input.actualEnd) : null;
+      if (input.notes !== undefined) updateValues.notes = input.notes;
+
+      const [updated] = await ctx.tenantDb
+        .update(jobAssignments)
+        .set(updateValues)
+        .where(eq(jobAssignments.id, subId))
+        .returning();
+
+      await ctx.tenantDb.insert(auditLog).values({
+        userId: ctx.userId,
+        action: "UPDATE",
+        entityType: "job_assignment",
+        entityId: subId,
+        previousData: existing,
+        newData: updated,
+      });
+
+      return { success: true, data: updated };
+    },
+  );
+
+  /**
+   * DELETE /api/v1/jobs/:id/assignments/:subId
+   * Remove an assignment from a job.
+   */
+  app.delete(
+    "/:id/assignments/:subId",
+    { preHandler: requirePermission("manage:jobs") },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const ctx = tenant(request);
+
+      const paramsParsed = subResourceParamSchema.safeParse(request.params);
+      if (!paramsParsed.success) {
+        return reply.status(400).send({ error: "Invalid parameters", code: "VALIDATION_ERROR" });
+      }
+
+      const { subId } = paramsParsed.data;
+
+      const [existing] = await ctx.tenantDb
+        .select()
+        .from(jobAssignments)
+        .where(eq(jobAssignments.id, subId))
+        .limit(1);
+
+      if (!existing) {
+        return reply.status(404).send({ error: "Assignment not found", code: "NOT_FOUND" });
+      }
+
+      await ctx.tenantDb.delete(jobAssignments).where(eq(jobAssignments.id, subId));
+
+      await ctx.tenantDb.insert(auditLog).values({
+        userId: ctx.userId,
+        action: "DELETE",
+        entityType: "job_assignment",
+        entityId: subId,
+        previousData: existing,
+      });
 
       return { success: true, data: { id: subId } };
     },

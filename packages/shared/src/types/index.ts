@@ -67,6 +67,8 @@ import type {
   jobTypeVisibleSectionsSchema,
   jobTypeRequiredFieldsSchema,
   jobTypeDefaultsSchema,
+  createJobAssignmentSchema,
+  updateJobAssignmentSchema,
 } from "../schemas/index.js";
 
 // ── Base Types ──
@@ -194,6 +196,11 @@ export type CreateJobAssetRequirementInput = z.infer<typeof createJobAssetRequir
 export type UpdateJobAssetRequirementInput = z.infer<typeof updateJobAssetRequirementSchema>;
 export type CreateJobPricingLineInput = z.infer<typeof createJobPricingLineSchema>;
 export type UpdateJobPricingLineInput = z.infer<typeof updateJobPricingLineSchema>;
+
+// ── Job Assignments ──
+
+export type CreateJobAssignmentInput = z.infer<typeof createJobAssignmentSchema>;
+export type UpdateJobAssignmentInput = z.infer<typeof updateJobAssignmentSchema>;
 
 // ── Tenant Context (used by middleware) ──
 

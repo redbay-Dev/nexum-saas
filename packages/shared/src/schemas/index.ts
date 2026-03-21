@@ -40,6 +40,8 @@ import {
   MATERIAL_STATUSES,
   DG_CLASSES,
   PACKING_GROUPS,
+  JOB_ASSIGNMENT_TYPES,
+  JOB_ASSIGNMENT_STATUSES,
 } from "../constants/index.js";
 
 // ── Base Entity Fields ──
@@ -454,6 +456,32 @@ export const createJobPricingLineSchema = z.object({
 });
 
 export const updateJobPricingLineSchema = createJobPricingLineSchema.partial();
+
+// ── Job Assignment Schemas ──
+
+const jobAssignmentTypeSchema = z.enum(JOB_ASSIGNMENT_TYPES);
+const jobAssignmentStatusSchema = z.enum(JOB_ASSIGNMENT_STATUSES);
+
+/** Create a job assignment (assign asset, driver, or contractor to a job). */
+export const createJobAssignmentSchema = z.object({
+  assignmentType: jobAssignmentTypeSchema,
+  assetId: z.uuid().optional(),
+  employeeId: z.uuid().optional(),
+  contractorCompanyId: z.uuid().optional(),
+  requirementId: z.uuid().optional(),
+  plannedStart: z.string().optional(),
+  plannedEnd: z.string().optional(),
+  notes: z.string().max(1000).optional(),
+});
+
+export const updateJobAssignmentSchema = z.object({
+  status: jobAssignmentStatusSchema.optional(),
+  plannedStart: z.string().optional(),
+  plannedEnd: z.string().optional(),
+  actualStart: z.string().optional(),
+  actualEnd: z.string().optional(),
+  notes: z.string().max(1000).optional(),
+});
 
 // ── Invoice Schemas ──
 

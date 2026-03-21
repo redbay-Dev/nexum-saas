@@ -2,6 +2,87 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.11.0] — 2026-03-21
+
+### Job Assignments — Assign Assets, Drivers, and Contractors to Jobs
+
+**What was built:**
+
+Shared package — new constants and schemas:
+- `JOB_ASSIGNMENT_TYPES` (asset, driver, contractor)
+- `JOB_ASSIGNMENT_STATUSES` (assigned, in_progress, completed, cancelled)
+- `createJobAssignmentSchema` — assignmentType, assetId/employeeId/contractorCompanyId, requirementId, plannedStart/End, notes
+- `updateJobAssignmentSchema` — status, plannedStart/End, actualStart/End, notes
+- TypeScript types: `CreateJobAssignmentInput`, `UpdateJobAssignmentInput`
+
+Backend — new DB table (migration 0005):
+- `job_assignments` — Links jobs to specific assets, drivers, or contractors. Tracks assignment lifecycle (assigned → in_progress → completed/cancelled), planned and actual start/end times, optional link back to an asset requirement for fulfilment tracking. Indexes on job_id, asset_id, employee_id, contractor_company_id, and status.
+
+Backend — new CRUD endpoints on jobs route:
+- `POST /api/v1/jobs/:id/assignments` — Create assignment with type-specific validation:
+  - Asset assignments validate asset exists and is available/in_use
+  - Driver assignments validate employee exists, is a driver, and is active
+  - Contractor assignments validate company exists and is a contractor
+  - Requirement reference validated against the job's actual requirements
+  - Blocked on cancelled/invoiced jobs
+- `PUT /api/v1/jobs/:id/assignments/:subId` — Update assignment status, times, notes
+- `DELETE /api/v1/jobs/:id/assignments/:subId` — Remove assignment with audit logging
+- Job cancellation now auto-cancels all active assignments (assigned/in_progress → cancelled)
+
+Backend — job detail endpoint updated:
+- `GET /api/v1/jobs/:id` now returns `assignments` array with joined data: asset registration/make/model/number, employee full name, contractor company name
+
+Frontend — new API hooks:
+- `useCreateJobAssignment(jobId)` — create assignment mutation
+- `useUpdateJobAssignment(jobId)` — update assignment (status transitions)
+- `useDeleteJobAssignment(jobId)` — remove assignment
+- `JobAssignment` interface with all joined fields
+
+Frontend — new dialog component:
+- `add-assignment-dialog.tsx` — Assignment type selector (asset/driver/contractor), cascading resource picker per type, optional requirement linking, planned start/end datetime pickers, notes
+
+Frontend — job detail page updated:
+- New "Assignments" card section between Asset Requirements and Pricing
+- Shows all assignments with type badge, resource label, status badge, planned times
+- Action buttons per assignment: "Start" (assigned → in_progress), "Complete" (in_progress → completed), "Remove"
+- Gated by `manage:jobs` permission and job locked status
+
+**Business logic implemented:**
+- Assignment type drives validation — assets must be available, drivers must be active and flagged as drivers, contractors must have contractor role
+- Requirement fulfilment tracking — assignments can optionally link to an asset requirement, enabling future fulfilment status display
+- Job cancellation cascades to release all active assignments
+- Invoiced/cancelled jobs block new assignments
+- Full audit trail for create/update/delete operations
+
+**All checks pass:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — all passing (24 tests across 6 files)
+- `pnpm build` — all packages build (chunk size warning noted, not blocking)
+
+**Known issues:**
+- None discovered
+
+**What's STILL MISSING:**
+- Scheduling view (Doc 07) — calendar/timeline showing jobs and assignments across dates — not started
+- Conflict detection — checking if an asset/driver is already assigned to another job in the same time window
+- Assignment notifications — SMS/push to drivers when assigned
+- Dockets/Daysheets (Doc 08) — not started
+- Pricing Engine (Doc 09) — not started
+- Invoicing/RCTI (Doc 10) — not started
+- Xero integration (Doc 11) — not started
+- All optional platform modules (Docs 12-20) — not started
+- Admin pages for: asset categories, material categories, qualification types, tenant org settings, user management, audit log viewer
+- Integration/E2E tests
+- CI/CD workflows (GitHub Actions)
+- OpenAPI/Swagger documentation
+
+**What's next:**
+- Scheduling (Doc 07) — calendar/timeline view for resource allocation, conflict detection
+- Dockets/Daysheets (Doc 08) — charge creation from completed jobs
+- More admin/settings pages (asset categories, material categories, qualification types)
+- Assignment conflict detection (double-booking prevention)
+
 ## [0.10.0] — 2026-03-21
 
 ### Job Detail Completion, Dashboard, Settings UI

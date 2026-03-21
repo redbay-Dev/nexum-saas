@@ -1185,4 +1185,11 @@ Every architectural, product, and workflow decision is recorded here with ration
 **Rationale:** Keeps the job form clean and relevant to the work being done. Tenants can customize job types to match their operations.
 **Alternatives considered:** Separate tables per job type (rejected — too much duplication). Single form with all sections always visible (rejected — cluttered UX for simple job types).
 
+### DEC-167: Job assignments separate from asset requirements
+**Date:** 2026-03-21
+**Context:** Jobs declare what they need (asset requirements: "2 tippers") separately from what they get (assignments: "Truck ABC-123"). How should this be modelled?
+**Decision:** `job_asset_requirements` defines what's needed. `job_assignments` tracks what's actually allocated. Assignments can optionally link back to a requirement via `requirement_id` for fulfilment tracking. Assignment types are asset, driver, or contractor — each with type-specific validation.
+**Rationale:** This separation follows the spec (Doc 06) and mirrors real-world dispatch: dispatchers define requirements at job creation, then the scheduler matches available resources. The optional link enables showing fulfilment status (e.g., "1 of 2 tippers assigned") without forcing a rigid 1:1 mapping.
+**Alternatives considered:** Assignments as children of requirements (rejected — drivers and contractors don't always map to asset requirements). Combined requirements+assignments table (rejected — different lifecycle and different data).
+
 ---

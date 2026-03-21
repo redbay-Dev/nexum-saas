@@ -9,6 +9,8 @@ import {
   useDeleteJobMaterial,
   useDeleteJobAssetRequirement,
   useDeleteJobPricingLine,
+  useDeleteJobAssignment,
+  useUpdateJobAssignment,
 } from "@frontend/api/jobs.js";
 import { useAuth } from "@frontend/hooks/use-auth.js";
 import { Button } from "@frontend/components/ui/button.js";
@@ -40,6 +42,7 @@ import { AddLocationDialog } from "@frontend/components/jobs/add-location-dialog
 import { AddMaterialDialog } from "@frontend/components/jobs/add-material-dialog.js";
 import { AddAssetRequirementDialog } from "@frontend/components/jobs/add-asset-requirement-dialog.js";
 import { AddPricingLineDialog } from "@frontend/components/jobs/add-pricing-line-dialog.js";
+import { AddAssignmentDialog } from "@frontend/components/jobs/add-assignment-dialog.js";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -77,6 +80,8 @@ export function JobDetailPage(): React.JSX.Element {
   const deleteMaterial = useDeleteJobMaterial(id);
   const deleteRequirement = useDeleteJobAssetRequirement(id);
   const deletePricingLine = useDeleteJobPricingLine(id);
+  const deleteAssignment = useDeleteJobAssignment(id);
+  const updateAssignment = useUpdateJobAssignment(id);
 
   const [isEditing, setIsEditing] = useState(false);
   const [transitionReason, setTransitionReason] = useState("");
@@ -548,6 +553,132 @@ export function JobDetailPage(): React.JSX.Element {
           </CardContent>
         </Card>
       ) : null}
+
+      {/* Assignments */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Assignments</CardTitle>
+            <CardDescription>Assets, drivers, and contractors assigned to this job</CardDescription>
+          </div>
+          {can("manage:jobs") && !isLocked ? (
+            <AddAssignmentDialog jobId={id} assetRequirements={job.assetRequirements} />
+          ) : null}
+        </CardHeader>
+        <CardContent>
+          {job.assignments.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">No resources assigned yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Resource</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Planned Start</TableHead>
+                  <TableHead>Planned End</TableHead>
+                  {can("manage:jobs") && !isLocked ? (
+                    <TableHead className="w-[160px]" />
+                  ) : null}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {job.assignments.map((assignment) => {
+                  let resourceLabel = "—";
+                  if (assignment.assignmentType === "asset") {
+                    const parts: string[] = [];
+                    if (assignment.assetRegistration) parts.push(assignment.assetRegistration);
+                    if (assignment.assetMake || assignment.assetModel) {
+                      parts.push([assignment.assetMake, assignment.assetModel].filter(Boolean).join(" "));
+                    }
+                    resourceLabel = parts.join(" — ") || (assignment.assetNumber ?? "—");
+                  } else if (assignment.assignmentType === "driver") {
+                    resourceLabel = assignment.employeeName ?? "—";
+                  } else if (assignment.assignmentType === "contractor") {
+                    resourceLabel = assignment.contractorName ?? "—";
+                  }
+
+                  const statusVariant =
+                    assignment.status === "completed" ? "secondary" as const :
+                    assignment.status === "cancelled" ? "destructive" as const :
+                    assignment.status === "in_progress" ? "default" as const :
+                    "outline" as const;
+
+                  return (
+                    <TableRow key={assignment.id}>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          {assignment.assignmentType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{resourceLabel}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant} className="capitalize">
+                          {assignment.status.replace(/_/g, " ")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(assignment.plannedStart)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(assignment.plannedEnd)}
+                      </TableCell>
+                      {can("manage:jobs") && !isLocked ? (
+                        <TableCell className="flex gap-1">
+                          {assignment.status === "assigned" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                updateAssignment.mutate(
+                                  { subId: assignment.id, data: { status: "in_progress" } },
+                                  {
+                                    onSuccess: () => toast.success("Assignment started"),
+                                    onError: () => toast.error("Failed to update"),
+                                  },
+                                )
+                              }
+                            >
+                              Start
+                            </Button>
+                          ) : null}
+                          {assignment.status === "in_progress" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                updateAssignment.mutate(
+                                  { subId: assignment.id, data: { status: "completed" } },
+                                  {
+                                    onSuccess: () => toast.success("Assignment completed"),
+                                    onError: () => toast.error("Failed to update"),
+                                  },
+                                )
+                              }
+                            >
+                              Complete
+                            </Button>
+                          ) : null}
+                          {assignment.status !== "completed" && assignment.status !== "cancelled" ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => deleteAssignment.mutate(assignment.id)}
+                            >
+                              Remove
+                            </Button>
+                          ) : null}
+                        </TableCell>
+                      ) : null}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Pricing Lines */}
       {job.jobTypeVisibleSections?.pricing !== false ? (
