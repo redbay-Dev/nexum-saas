@@ -121,7 +121,7 @@ This is the single most important development rule. Agents that bypass type safe
 - **Changelog honesty.** When writing changelog entries, list what's STILL MISSING from the spec, not just what was built. Never declare a feature "complete" unless every sub-feature and requirement in the spec is implemented.
 - **No temporary placeholders.** No TODO comments, no dummy data, no "will be added later", no dev-mode shortcuts.
 - **If you run out of context/time,** clearly document exactly what remains unfinished so the next session can pick it up — don't just list vague "next steps."
-- **Verification step:** After building, re-read the spec and diff it against what you built. If bullets are missing, you're not done.
+- **Verification step:** After building, re-read the spec and diff it against what you built. If bullets are missing, you're not done. Tests passing means nothing if the tests only cover what was built, not what was specified.
 
 ### Before Starting Any Task
 1. Read the relevant doc(s) from `docs/` (numbered 00-22)
