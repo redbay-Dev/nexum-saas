@@ -16,6 +16,9 @@ import {
   JOB_PRICING_LINE_TYPES,
   JOB_PRICING_RATE_TYPES,
   JOB_PRICING_CATEGORIES,
+  JOB_PRICING_SOURCES,
+  DEALLOCATION_REASONS,
+  USER_STATUSES,
   PROJECT_STATUSES,
   INVOICE_STATUSES,
   RCTI_STATUSES,
@@ -440,6 +443,9 @@ export const createJobAssetRequirementSchema = z.object({
 
 export const updateJobAssetRequirementSchema = createJobAssetRequirementSchema.partial();
 
+/** Job pricing source schema. */
+export const jobPricingSourceSchema = z.enum(JOB_PRICING_SOURCES);
+
 /** Create a job pricing line. */
 export const createJobPricingLineSchema = z.object({
   lineType: jobPricingLineTypeSchema,
@@ -452,6 +458,10 @@ export const createJobPricingLineSchema = z.object({
   unitRate: z.number().min(0).default(0),
   total: z.number().min(0).default(0),
   isLocked: z.boolean().default(false),
+  isVariation: z.boolean().default(false),
+  variationReason: z.string().max(500).optional(),
+  source: jobPricingSourceSchema.default("manual"),
+  sourceReferenceId: z.uuid().optional(),
   sortOrder: z.number().int().min(0).default(0),
 });
 
@@ -755,6 +765,91 @@ export const updateDisposalSiteSettingsSchema = createDisposalSiteSettingsSchema
 // ── Pricing Schemas ──
 
 export const pricingBehaviourSchema = z.enum(PRICING_BEHAVIOURS);
+
+/** Job financial summary (computed from pricing lines). */
+export const jobFinancialSummarySchema = z.object({
+  totalRevenue: z.number(),
+  totalCost: z.number(),
+  grossProfit: z.number(),
+  marginPercent: z.number().nullable(),
+  categoryBreakdown: z.array(
+    z.object({
+      category: jobPricingCategorySchema,
+      revenue: z.number(),
+      cost: z.number(),
+    }),
+  ),
+});
+
+// ── Deallocation Schema ──
+
+export const deallocationReasonSchema = z.enum(DEALLOCATION_REASONS);
+
+export const deallocateAssignmentSchema = z.object({
+  reason: deallocationReasonSchema,
+  notes: z.string().max(1000).optional(),
+  completedLoads: z.number().int().min(0).optional(),
+});
+
+// ── Bulk Allocation Schema ──
+
+export const bulkAllocationItemSchema = z.object({
+  assignmentType: z.enum(JOB_ASSIGNMENT_TYPES),
+  assetId: z.uuid().optional(),
+  employeeId: z.uuid().optional(),
+  contractorCompanyId: z.uuid().optional(),
+  requirementId: z.uuid().optional(),
+  plannedStart: z.string().optional(),
+  plannedEnd: z.string().optional(),
+  notes: z.string().max(1000).optional(),
+});
+
+export const bulkAllocationSchema = z.object({
+  jobId: z.uuid(),
+  allocations: z.array(bulkAllocationItemSchema).min(1).max(300),
+});
+
+// ── Organisation Update Schema ──
+
+export const updateOrganisationSchema = z.object({
+  companyName: z.string().min(1).max(255).optional(),
+  tradingName: z.string().max(255).optional(),
+  abn: abnSchema.optional(),
+  phone: phoneSchema.optional(),
+  email: z.email().optional(),
+  website: z.url().optional(),
+  logoUrl: z.string().optional(),
+  registeredAddress: z.string().optional(),
+  bankBsb: z.string().regex(/^\d{6}$/, "BSB must be 6 digits").optional(),
+  bankAccountNumber: z.string().max(20).optional(),
+  bankAccountName: z.string().max(255).optional(),
+  defaultPaymentTerms: z.number().int().min(0).max(365).optional(),
+  timezone: z.string().optional(),
+});
+
+// ── User Management Schemas ──
+
+export const userAccountStatusSchema = z.enum(USER_STATUSES);
+
+export const updateUserRoleSchema = z.object({
+  role: userRoleSchema,
+});
+
+export const updateUserStatusSchema = z.object({
+  status: userAccountStatusSchema,
+});
+
+// ── Audit Log Query Schema ──
+
+export const auditLogQuerySchema = paginationQuerySchema.extend({
+  userId: z.string().optional(),
+  action: z.enum(AUDIT_ACTIONS).optional(),
+  entityType: z.string().max(50).optional(),
+  entityId: z.uuid().optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  search: z.string().optional(),
+});
 
 // ── Audit Log Schema ──
 

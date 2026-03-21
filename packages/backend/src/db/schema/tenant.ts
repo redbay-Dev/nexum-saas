@@ -909,7 +909,14 @@ export const jobPricingLines = pgTable(
     quantity: numeric("quantity", { precision: 12, scale: 4 }).notNull().default("0"),
     unitRate: numeric("unit_rate", { precision: 12, scale: 4 }).notNull().default("0"),
     total: numeric("total", { precision: 14, scale: 2 }).notNull().default("0"),
+    plannedQuantity: numeric("planned_quantity", { precision: 12, scale: 4 }),
+    plannedUnitRate: numeric("planned_unit_rate", { precision: 12, scale: 4 }),
+    plannedTotal: numeric("planned_total", { precision: 14, scale: 2 }),
     isLocked: boolean("is_locked").notNull().default(false),
+    isVariation: boolean("is_variation").notNull().default(false),
+    variationReason: text("variation_reason"),
+    source: varchar("source", { length: 20 }).notNull().default("manual"),
+    sourceReferenceId: uuid("source_reference_id"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -944,6 +951,8 @@ export const jobAssignments = pgTable(
     actualStart: timestamp("actual_start", { withTimezone: true }),
     actualEnd: timestamp("actual_end", { withTimezone: true }),
     notes: text("notes"),
+    deallocationReason: varchar("deallocation_reason", { length: 30 }),
+    completedLoads: integer("completed_loads"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

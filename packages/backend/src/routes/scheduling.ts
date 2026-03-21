@@ -9,12 +9,21 @@ import {
   jobLocations,
   jobAssetRequirements,
   jobAssignments,
+  jobStatusHistory,
   addresses,
   assets,
   employees,
   assetCategories,
   assetSubcategories,
+  auditLog,
 } from "../db/schema/tenant.js";
+import {
+  deallocateAssignmentSchema,
+  bulkAllocationSchema,
+  createJobAssignmentSchema,
+  idParamSchema,
+} from "@nexum/shared";
+import type { JobStatus } from "@nexum/shared";
 import { z } from "zod";
 
 // ── Query schemas ──
@@ -75,6 +84,8 @@ interface SchedulingJobRequirement {
   categoryName: string | null;
   subcategoryName: string | null;
   quantity: number;
+  allocated: number;
+  fulfilled: boolean;
 }
 
 interface SchedulingJob {
@@ -243,6 +254,7 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
             assetId: jobAssignments.assetId,
             employeeId: jobAssignments.employeeId,
             contractorCompanyId: jobAssignments.contractorCompanyId,
+            requirementId: jobAssignments.requirementId,
             status: jobAssignments.status,
             plannedStart: jobAssignments.plannedStart,
             plannedEnd: jobAssignments.plannedEnd,
@@ -326,9 +338,18 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
         assignmentsByJob.set(a.jobId, list);
       }
 
+      // Count allocations per requirement (assignments that reference a requirementId)
+      const allocationCountByRequirement = new Map<string, number>();
+      for (const a of assignmentRows) {
+        if (a.requirementId) {
+          allocationCountByRequirement.set(a.requirementId, (allocationCountByRequirement.get(a.requirementId) ?? 0) + 1);
+        }
+      }
+
       const requirementsByJob = new Map<string, SchedulingJobRequirement[]>();
       for (const r of requirementRows) {
         const list = requirementsByJob.get(r.jobId) ?? [];
+        const allocated = allocationCountByRequirement.get(r.id) ?? 0;
         list.push({
           id: r.id,
           assetCategoryId: r.assetCategoryId,
@@ -336,6 +357,8 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
           categoryName: r.categoryName,
           subcategoryName: r.subcategoryName,
           quantity: r.quantity,
+          allocated,
+          fulfilled: allocated >= r.quantity,
         });
         requirementsByJob.set(r.jobId, list);
       }
@@ -728,6 +751,244 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
       }
 
       return { success: true, data: result };
+    },
+  );
+
+  // ── Deallocation ──
+
+  /**
+   * PUT /api/v1/scheduling/deallocate/:id
+   * Deallocate (cancel) an assignment with a reason.
+   */
+  app.put(
+    "/deallocate/:id",
+    { preHandler: requirePermission("manage:scheduling") },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const ctx = tenant(request);
+
+      const paramsParsed = idParamSchema.safeParse(request.params);
+      if (!paramsParsed.success) {
+        return reply.status(400).send({ error: "Invalid assignment ID", code: "VALIDATION_ERROR" });
+      }
+
+      const bodyParsed = deallocateAssignmentSchema.safeParse(request.body);
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          error: "Invalid deallocation data",
+          code: "VALIDATION_ERROR",
+          details: bodyParsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const assignmentId = paramsParsed.data.id;
+      const input = bodyParsed.data;
+
+      const [existing] = await ctx.tenantDb
+        .select()
+        .from(jobAssignments)
+        .where(eq(jobAssignments.id, assignmentId))
+        .limit(1);
+
+      if (!existing) {
+        return reply.status(404).send({ error: "Assignment not found", code: "NOT_FOUND" });
+      }
+
+      if (existing.status === "cancelled") {
+        return reply.status(400).send({
+          error: "Assignment is already cancelled",
+          code: "ALREADY_CANCELLED",
+        });
+      }
+
+      const [updated] = await ctx.tenantDb
+        .update(jobAssignments)
+        .set({
+          status: "cancelled",
+          deallocationReason: input.reason,
+          completedLoads: input.completedLoads ?? null,
+          notes: input.notes ? `${existing.notes ? existing.notes + "\n" : ""}Deallocation: ${input.notes}` : existing.notes,
+          updatedAt: new Date(),
+        })
+        .where(eq(jobAssignments.id, assignmentId))
+        .returning();
+
+      await ctx.tenantDb.insert(auditLog).values({
+        userId: ctx.userId,
+        action: "STATUS_CHANGE",
+        entityType: "job_assignment",
+        entityId: assignmentId,
+        previousData: { status: existing.status },
+        newData: { status: "cancelled", reason: input.reason, completedLoads: input.completedLoads },
+      });
+
+      return { success: true, data: updated };
+    },
+  );
+
+  // ── Bulk Allocation ──
+
+  /**
+   * POST /api/v1/scheduling/bulk-allocate
+   * Allocate multiple resources to a job in one request.
+   */
+  app.post(
+    "/bulk-allocate",
+    { preHandler: requirePermission("manage:scheduling") },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const ctx = tenant(request);
+
+      const bodyParsed = bulkAllocationSchema.safeParse(request.body);
+      if (!bodyParsed.success) {
+        return reply.status(400).send({
+          error: "Invalid bulk allocation data",
+          code: "VALIDATION_ERROR",
+          details: bodyParsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const { jobId, allocations } = bodyParsed.data;
+
+      // Verify job exists and is in an assignable status
+      const [job] = await ctx.tenantDb
+        .select({ id: jobs.id, status: jobs.status, scheduledStart: jobs.scheduledStart })
+        .from(jobs)
+        .where(and(eq(jobs.id, jobId), isNull(jobs.deletedAt)))
+        .limit(1);
+
+      if (!job) {
+        return reply.status(404).send({ error: "Job not found", code: "NOT_FOUND" });
+      }
+
+      if (job.status === "invoiced" || job.status === "cancelled") {
+        return reply.status(400).send({
+          error: `Cannot assign resources to a ${job.status} job`,
+          code: "JOB_LOCKED",
+        });
+      }
+
+      const results: Array<{ index: number; success: boolean; assignmentId?: string; error?: string }> = [];
+
+      for (let i = 0; i < allocations.length; i++) {
+        const alloc = allocations[i]!;
+
+        // Validate each allocation individually
+        const parsed = createJobAssignmentSchema.safeParse(alloc);
+        if (!parsed.success) {
+          results.push({ index: i, success: false, error: "Validation failed" });
+          continue;
+        }
+
+        // Validate resource exists and is available
+        if (alloc.assignmentType === "asset" && alloc.assetId) {
+          const [asset] = await ctx.tenantDb
+            .select({ id: assets.id, status: assets.status })
+            .from(assets)
+            .where(and(eq(assets.id, alloc.assetId), isNull(assets.deletedAt)))
+            .limit(1);
+          if (!asset || (asset.status !== "available" && asset.status !== "in_use")) {
+            results.push({ index: i, success: false, error: "Asset not available" });
+            continue;
+          }
+        }
+
+        if (alloc.assignmentType === "driver" && alloc.employeeId) {
+          const [employee] = await ctx.tenantDb
+            .select({ id: employees.id, isDriver: employees.isDriver, status: employees.status })
+            .from(employees)
+            .where(and(eq(employees.id, alloc.employeeId), isNull(employees.deletedAt)))
+            .limit(1);
+          if (!employee || !employee.isDriver || employee.status !== "active") {
+            results.push({ index: i, success: false, error: "Driver not available" });
+            continue;
+          }
+        }
+
+        if (alloc.assignmentType === "contractor" && alloc.contractorCompanyId) {
+          const [contractor] = await ctx.tenantDb
+            .select({ id: companies.id, isContractor: companies.isContractor })
+            .from(companies)
+            .where(and(eq(companies.id, alloc.contractorCompanyId), isNull(companies.deletedAt)))
+            .limit(1);
+          if (!contractor || !contractor.isContractor) {
+            results.push({ index: i, success: false, error: "Contractor not found" });
+            continue;
+          }
+        }
+
+        const id = crypto.randomUUID();
+        await ctx.tenantDb
+          .insert(jobAssignments)
+          .values({
+            id,
+            jobId,
+            assignmentType: alloc.assignmentType,
+            assetId: alloc.assetId,
+            employeeId: alloc.employeeId,
+            contractorCompanyId: alloc.contractorCompanyId,
+            requirementId: alloc.requirementId,
+            status: "assigned",
+            plannedStart: alloc.plannedStart ? new Date(alloc.plannedStart) : undefined,
+            plannedEnd: alloc.plannedEnd ? new Date(alloc.plannedEnd) : undefined,
+            notes: alloc.notes,
+          });
+
+        await ctx.tenantDb.insert(auditLog).values({
+          userId: ctx.userId,
+          action: "CREATE",
+          entityType: "job_assignment",
+          entityId: id,
+          newData: { jobId, ...alloc, bulk: true },
+        });
+
+        results.push({ index: i, success: true, assignmentId: id });
+      }
+
+      // Auto-transition job status if any allocations succeeded
+      const successCount = results.filter((r) => r.success).length;
+      if (successCount > 0) {
+        const currentStatus = job.status as JobStatus;
+        let newStatus: JobStatus | null = null;
+
+        if (currentStatus === "confirmed") {
+          if (job.scheduledStart && new Date(job.scheduledStart) <= new Date()) {
+            newStatus = "in_progress";
+          } else {
+            newStatus = "scheduled";
+          }
+        } else if (currentStatus === "scheduled") {
+          if (job.scheduledStart && new Date(job.scheduledStart) <= new Date()) {
+            newStatus = "in_progress";
+          }
+        }
+
+        if (newStatus) {
+          const updateData: Record<string, unknown> = { status: newStatus, updatedAt: new Date() };
+          if (newStatus === "in_progress") {
+            updateData.actualStart = new Date();
+          }
+
+          await ctx.tenantDb.update(jobs).set(updateData).where(eq(jobs.id, jobId));
+
+          await ctx.tenantDb.insert(jobStatusHistory).values({
+            jobId,
+            fromStatus: currentStatus,
+            toStatus: newStatus,
+            changedBy: ctx.userId,
+            reason: `Auto-transitioned on bulk allocation (${successCount} resources)`,
+          });
+        }
+      }
+
+      const totalSuccess = results.filter((r) => r.success).length;
+      const totalFailed = results.filter((r) => !r.success).length;
+
+      return reply.status(totalFailed === allocations.length ? 400 : 201).send({
+        success: totalSuccess > 0,
+        data: {
+          results,
+          summary: { total: allocations.length, succeeded: totalSuccess, failed: totalFailed },
+        },
+      });
     },
   );
 }

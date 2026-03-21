@@ -17,5 +17,6 @@ export default defineConfig({
       REDIS_KEY_PREFIX: "nexum-test:",
     },
     pool: "forks",
+    fileParallelism: false,
   },
 });

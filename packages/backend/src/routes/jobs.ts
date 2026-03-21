@@ -1217,6 +1217,7 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const id = crypto.randomUUID();
+
       const [line] = await ctx.tenantDb
         .insert(jobPricingLines)
         .values({
@@ -1232,9 +1233,21 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
           unitRate: input.unitRate.toString(),
           total: input.total.toString(),
           isLocked: input.isLocked,
+          isVariation: input.isVariation,
+          variationReason: input.variationReason,
+          source: input.source,
+          sourceReferenceId: input.sourceReferenceId,
           sortOrder: input.sortOrder,
         })
         .returning();
+
+      await ctx.tenantDb.insert(auditLog).values({
+        userId: ctx.userId,
+        action: "CREATE",
+        entityType: "job_pricing_line",
+        entityId: id,
+        newData: { jobId, ...input },
+      });
 
       return reply.status(201).send({ success: true, data: line });
     },
@@ -1294,6 +1307,10 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       if (input.unitRate !== undefined) updateValues.unitRate = input.unitRate.toString();
       if (input.total !== undefined) updateValues.total = input.total.toString();
       if (input.isLocked !== undefined) updateValues.isLocked = input.isLocked;
+      if (input.isVariation !== undefined) updateValues.isVariation = input.isVariation;
+      if (input.variationReason !== undefined) updateValues.variationReason = input.variationReason;
+      if (input.source !== undefined) updateValues.source = input.source;
+      if (input.sourceReferenceId !== undefined) updateValues.sourceReferenceId = input.sourceReferenceId;
       if (input.sortOrder !== undefined) updateValues.sortOrder = input.sortOrder;
 
       const [updated] = await ctx.tenantDb
@@ -1301,6 +1318,15 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
         .set(updateValues)
         .where(eq(jobPricingLines.id, subId))
         .returning();
+
+      await ctx.tenantDb.insert(auditLog).values({
+        userId: ctx.userId,
+        action: "UPDATE",
+        entityType: "job_pricing_line",
+        entityId: subId,
+        previousData: existing,
+        newData: updated,
+      });
 
       return { success: true, data: updated };
     },
@@ -1337,7 +1363,93 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
 
       await ctx.tenantDb.delete(jobPricingLines).where(eq(jobPricingLines.id, subId));
 
+      await ctx.tenantDb.insert(auditLog).values({
+        userId: ctx.userId,
+        action: "DELETE",
+        entityType: "job_pricing_line",
+        entityId: subId,
+        previousData: existing,
+      });
+
       return { success: true, data: { id: subId } };
+    },
+  );
+
+  /**
+   * GET /api/v1/jobs/:id/financial-summary
+   * Compute financial summary from all pricing lines for a job.
+   */
+  app.get(
+    "/:id/financial-summary",
+    { preHandler: requirePermission("view:pricing") },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const ctx = tenant(request);
+
+      const paramsParsed = idParamSchema.safeParse(request.params);
+      if (!paramsParsed.success) {
+        return reply.status(400).send({ error: "Invalid job ID", code: "VALIDATION_ERROR" });
+      }
+
+      const jobId = paramsParsed.data.id;
+
+      // Verify job exists
+      const [job] = await ctx.tenantDb
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(and(eq(jobs.id, jobId), isNull(jobs.deletedAt)))
+        .limit(1);
+
+      if (!job) {
+        return reply.status(404).send({ error: "Job not found", code: "NOT_FOUND" });
+      }
+
+      const lines = await ctx.tenantDb
+        .select()
+        .from(jobPricingLines)
+        .where(eq(jobPricingLines.jobId, jobId));
+
+      let totalRevenue = 0;
+      let totalCost = 0;
+
+      const categoryMap = new Map<string, { revenue: number; cost: number }>();
+
+      for (const line of lines) {
+        const total = Number(line.total);
+        const category = line.category;
+
+        if (!categoryMap.has(category)) {
+          categoryMap.set(category, { revenue: 0, cost: 0 });
+        }
+        const cat = categoryMap.get(category)!;
+
+        if (line.lineType === "revenue") {
+          totalRevenue += total;
+          cat.revenue += total;
+        } else {
+          totalCost += total;
+          cat.cost += total;
+        }
+      }
+
+      const grossProfit = totalRevenue - totalCost;
+      const marginPercent = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : null;
+
+      const categoryBreakdown = Array.from(categoryMap.entries()).map(([category, data]) => ({
+        category,
+        revenue: data.revenue,
+        cost: data.cost,
+      }));
+
+      return {
+        success: true,
+        data: {
+          totalRevenue,
+          totalCost,
+          grossProfit,
+          marginPercent: marginPercent !== null ? Math.round(marginPercent * 100) / 100 : null,
+          categoryBreakdown,
+        },
+      };
     },
   );
 
@@ -1372,7 +1484,7 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
 
       // Verify job exists and is in an assignable status
       const [job] = await ctx.tenantDb
-        .select({ id: jobs.id, status: jobs.status })
+        .select({ id: jobs.id, status: jobs.status, scheduledStart: jobs.scheduledStart })
         .from(jobs)
         .where(and(eq(jobs.id, jobId), isNull(jobs.deletedAt)))
         .limit(1);
@@ -1516,6 +1628,57 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
         entityId: id,
         newData: assignment,
       });
+
+      // Auto-transition job status on allocation
+      // confirmed → scheduled when first resource allocated
+      // scheduled → in_progress if scheduledStart is in the past
+      const currentStatus = job.status as JobStatus;
+      let newStatus: JobStatus | null = null;
+
+      if (currentStatus === "confirmed") {
+        // Check if scheduledStart is in the past → go straight to in_progress
+        if (job.scheduledStart && new Date(job.scheduledStart) <= new Date()) {
+          newStatus = "in_progress";
+        } else {
+          newStatus = "scheduled";
+        }
+      } else if (currentStatus === "scheduled") {
+        if (job.scheduledStart && new Date(job.scheduledStart) <= new Date()) {
+          newStatus = "in_progress";
+        }
+      }
+
+      if (newStatus) {
+        const updateData: Record<string, unknown> = {
+          status: newStatus,
+          updatedAt: new Date(),
+        };
+        if (newStatus === "in_progress") {
+          updateData.actualStart = new Date();
+        }
+
+        await ctx.tenantDb
+          .update(jobs)
+          .set(updateData)
+          .where(eq(jobs.id, jobId));
+
+        await ctx.tenantDb.insert(jobStatusHistory).values({
+          jobId,
+          fromStatus: currentStatus,
+          toStatus: newStatus,
+          changedBy: ctx.userId,
+          reason: "Auto-transitioned on resource allocation",
+        });
+
+        await ctx.tenantDb.insert(auditLog).values({
+          userId: ctx.userId,
+          action: "STATUS_CHANGE",
+          entityType: "job",
+          entityId: jobId,
+          previousData: { status: currentStatus },
+          newData: { status: newStatus, trigger: "allocation" },
+        });
+      }
 
       return reply.status(201).send({ success: true, data: assignment });
     },

@@ -32,6 +32,10 @@ import { ProjectsPage } from "@frontend/pages/projects/index.js";
 import { CreateProjectPage } from "@frontend/pages/projects/create.js";
 import { ProjectDetailPage } from "@frontend/pages/projects/detail.js";
 import { JobTypeSettingsPage } from "@frontend/pages/settings/job-types.js";
+import { OrganisationSettingsPage } from "@frontend/pages/settings/organisation.js";
+import { UserManagementPage } from "@frontend/pages/settings/users.js";
+import { AuditLogPage } from "@frontend/pages/settings/audit-log.js";
+import { SettingsLayout } from "@frontend/layouts/settings-layout.js";
 import { SchedulingPage } from "@frontend/pages/scheduling/index.js";
 
 export function App(): React.JSX.Element {
@@ -78,7 +82,13 @@ export function App(): React.JSX.Element {
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/new" element={<CreateProjectPage />} />
         <Route path="projects/:id" element={<ProjectDetailPage />} />
-        <Route path="settings/job-types" element={<JobTypeSettingsPage />} />
+        <Route path="settings" element={<SettingsLayout />}>
+          <Route index element={<Navigate to="/settings/organisation" replace />} />
+          <Route path="organisation" element={<OrganisationSettingsPage />} />
+          <Route path="users" element={<UserManagementPage />} />
+          <Route path="job-types" element={<JobTypeSettingsPage />} />
+          <Route path="audit-log" element={<AuditLogPage />} />
+        </Route>
       </Route>
 
       {/* Default redirect */}

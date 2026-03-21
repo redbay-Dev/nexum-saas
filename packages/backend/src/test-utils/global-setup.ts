@@ -50,6 +50,18 @@ async function runPublicMigrations(): Promise<void> {
       SELECT 1 FROM information_schema.tables
       WHERE table_schema = 'public' AND table_name = 'tenants'
     `;
+
+    // Always apply incremental column additions
+    await sql.unsafe(`
+      ALTER TABLE tenant_users ADD COLUMN IF NOT EXISTS display_name VARCHAR(255)
+    `).catch(() => {/* column may already exist */});
+    await sql.unsafe(`
+      ALTER TABLE tenant_users ADD COLUMN IF NOT EXISTS email VARCHAR(255)
+    `).catch(() => {/* column may already exist */});
+    await sql.unsafe(`
+      ALTER TABLE tenant_users ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active'
+    `).catch(() => {/* column may already exist */});
+
     if (exists) return;
 
     const migrationPath = resolve(
@@ -70,12 +82,6 @@ async function runPublicMigrations(): Promise<void> {
     // Add columns that exist in schema but not in initial migration
     await sql.unsafe(`
       ALTER TABLE tenants ADD COLUMN IF NOT EXISTS opshield_tenant_id UUID UNIQUE
-    `);
-    await sql.unsafe(`
-      ALTER TABLE tenant_users ADD COLUMN IF NOT EXISTS display_name VARCHAR(255)
-    `);
-    await sql.unsafe(`
-      ALTER TABLE tenant_users ADD COLUMN IF NOT EXISTS email VARCHAR(255)
     `);
   } finally {
     await sql.end();
@@ -139,7 +145,40 @@ async function provisionTestTenantSchema(): Promise<void> {
       SELECT 1 FROM information_schema.schemata
       WHERE schema_name = ${TEST_IDS.schemaName}
     `;
-    if (exists) return;
+    if (exists) {
+      // Apply any new migrations not yet applied
+      await sql.unsafe(`SET search_path TO "${TEST_IDS.schemaName}"`);
+      const migrationsDir = resolve(import.meta.dirname, "../db/migrations/tenant");
+      const { readdir } = await import("node:fs/promises");
+      const files = (await readdir(migrationsDir))
+        .filter((f) => f.endsWith(".sql"))
+        .sort();
+
+      for (const file of files) {
+        const [alreadyApplied] = await sql`
+          SELECT 1 FROM "_drizzle_migrations" WHERE migration_name = ${file}
+        `;
+        if (alreadyApplied) continue;
+
+        const content = await readFile(resolve(migrationsDir, file), "utf-8");
+        const statements = content
+          .split("--> statement-breakpoint")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+
+        for (const statement of statements) {
+          const fixed = statement.replace(/REFERENCES "public"\./g, "REFERENCES ");
+          await sql.unsafe(fixed);
+        }
+
+        await sql`
+          INSERT INTO "_drizzle_migrations" (migration_name)
+          VALUES (${file})
+        `;
+      }
+
+      return;
+    }
 
     // Create schema
     await sql.unsafe(`CREATE SCHEMA "${TEST_IDS.schemaName}"`);

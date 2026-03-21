@@ -1192,4 +1192,18 @@ Every architectural, product, and workflow decision is recorded here with ration
 **Rationale:** This separation follows the spec (Doc 06) and mirrors real-world dispatch: dispatchers define requirements at job creation, then the scheduler matches available resources. The optional link enables showing fulfilment status (e.g., "1 of 2 tippers assigned") without forcing a rigid 1:1 mapping.
 **Alternatives considered:** Assignments as children of requirements (rejected — drivers and contractors don't always map to asset requirements). Combined requirements+assignments table (rejected — different lifecycle and different data).
 
+### DEC-168: No tax fields in Nexum pricing
+**Date:** 2026-03-21
+**Context:** Pricing lines were initially built with taxRate and taxAmount fields. Ryan flagged that this is business operations software — tax is handled entirely in Xero.
+**Decision:** Remove all tax calculation fields (taxRate, taxAmount, GST) from Nexum pricing. Pricing lines track revenue and cost amounts only. Tax is applied when data syncs to Xero.
+**Rationale:** Nexum is not an accounting system. Duplicating tax logic creates maintenance burden and potential discrepancies with the authoritative system (Xero). Tax rules are complex and vary by jurisdiction — let the accounting system own this.
+**Alternatives considered:** Store tax rate for display only (rejected — still creates confusion about source of truth). Keep tax for invoice preview (rejected — invoices are generated in or synced to Xero where tax is applied).
+
+### DEC-169: Sequential test file execution for shared database
+**Date:** 2026-03-21
+**Context:** Integration test files (jobs, scheduling, admin) all share the same `nexum_test` database and use `cleanupJobs()` to truncate between tests. Running files in parallel with `vitest` caused cross-file data conflicts.
+**Decision:** Set `fileParallelism: false` in vitest config for the backend package. Tests within a file still run sequentially (as they must for DB tests), and files run one at a time.
+**Rationale:** Tests that share a database cannot run in parallel without per-file schema isolation (which adds significant complexity). Sequential file execution is simpler and sufficient — the total backend test suite runs in under 30 seconds.
+**Alternatives considered:** Per-file schema isolation (rejected — overengineered for current test count). In-memory database (rejected — project rule: no mocking, test against real PostgreSQL).
+
 ---

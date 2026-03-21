@@ -169,6 +169,30 @@ describe("unauthenticated route access", () => {
     expect(response.statusCode).toBe(401);
   });
 
+  it("GET /api/v1/organisation should return 401 without auth", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/organisation",
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("GET /api/v1/users should return 401 without auth", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/users",
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("GET /api/v1/audit-log should return 401 without auth", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/audit-log",
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
   it("should return 404 for non-existent routes", async () => {
     const response = await app.inject({
       method: "GET",

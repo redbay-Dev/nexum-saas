@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@frontend/lib/api-client.js";
+import type { DeallocationReason } from "@nexum/shared";
 
 // ── Types ──
 
@@ -37,6 +38,8 @@ export interface SchedulingJobRequirement {
   categoryName: string | null;
   subcategoryName: string | null;
   quantity: number;
+  allocated: number;
+  fulfilled: boolean;
 }
 
 export interface SchedulingJob {
@@ -202,6 +205,62 @@ export function useSchedulingResources(
         `/api/v1/scheduling/resources?date=${date}${typeParam}`,
       ),
     enabled: Boolean(date),
+  });
+}
+
+// ── Mutations ──
+
+export interface DeallocateInput {
+  assignmentId: string;
+  reason: DeallocationReason;
+  notes?: string;
+  completedLoads?: number;
+}
+
+export function useDeallocateAssignment(): ReturnType<
+  typeof useMutation<unknown, Error, DeallocateInput>
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ assignmentId, ...data }: DeallocateInput) =>
+      api.put(`/api/v1/scheduling/deallocate/${assignmentId}`, data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: schedulingKeys.all });
+    },
+  });
+}
+
+export interface BulkAllocationItem {
+  assignmentType: "asset" | "driver" | "contractor";
+  assetId?: string;
+  employeeId?: string;
+  contractorCompanyId?: string;
+  requirementId?: string;
+  plannedStart?: string;
+  plannedEnd?: string;
+  notes?: string;
+}
+
+export interface BulkAllocationInput {
+  jobId: string;
+  allocations: BulkAllocationItem[];
+}
+
+export interface BulkAllocationResult {
+  results: Array<{ index: number; success: boolean; assignmentId?: string; error?: string }>;
+  summary: { total: number; succeeded: number; failed: number };
+}
+
+export function useBulkAllocate(): ReturnType<
+  typeof useMutation<BulkAllocationResult, Error, BulkAllocationInput>
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: BulkAllocationInput) =>
+      api.post<BulkAllocationResult>("/api/v1/scheduling/bulk-allocate", data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: schedulingKeys.all });
+    },
   });
 }
 

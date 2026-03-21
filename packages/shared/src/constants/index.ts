@@ -116,6 +116,8 @@ export const JOB_PRICING_CATEGORIES = [
   "tip_fee",
   "material",
   "subcontractor",
+  "equipment",
+  "labour",
   "fuel_levy",
   "other",
 ] as const;
@@ -409,6 +411,34 @@ export const PACKING_GROUPS = [
 ] as const;
 
 export type PackingGroup = (typeof PACKING_GROUPS)[number];
+
+// ── Job Pricing Sources ──
+export const JOB_PRICING_SOURCES = [
+  "manual",
+  "material",
+  "tip_fee",
+  "subcontractor",
+] as const;
+
+export type JobPricingSource = (typeof JOB_PRICING_SOURCES)[number];
+
+// ── Deallocation Reasons ──
+export const DEALLOCATION_REASONS = [
+  "reassignment",
+  "no_longer_needed",
+  "compliance_issue",
+  "breakdown",
+  "weather",
+  "customer_request",
+  "other",
+] as const;
+
+export type DeallocationReason = (typeof DEALLOCATION_REASONS)[number];
+
+// ── User Account Status ──
+export const USER_STATUSES = ["active", "deactivated"] as const;
+
+export type UserAccountStatus = (typeof USER_STATUSES)[number];
 
 // ── Audit Action Types ──
 export const AUDIT_ACTIONS = [

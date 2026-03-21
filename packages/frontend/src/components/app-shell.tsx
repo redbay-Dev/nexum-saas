@@ -71,6 +71,8 @@ const OPERATIONS_NAV: NavItem[] = [
 ];
 
 const SETTINGS_NAV: NavItem[] = [
+  { to: "/settings/organisation", label: "Organisation", icon: Building2 },
+  { to: "/settings/users", label: "Users", icon: Users },
   { to: "/settings/job-types", label: "Job Types", icon: SlidersHorizontal },
 ];
 

@@ -42,6 +42,7 @@ import { AddLocationDialog } from "@frontend/components/jobs/add-location-dialog
 import { AddMaterialDialog } from "@frontend/components/jobs/add-material-dialog.js";
 import { AddAssetRequirementDialog } from "@frontend/components/jobs/add-asset-requirement-dialog.js";
 import { AddPricingLineDialog } from "@frontend/components/jobs/add-pricing-line-dialog.js";
+import { JobFinancialSummary } from "@frontend/components/jobs/job-financial-summary.js";
 import { AddAssignmentDialog } from "@frontend/components/jobs/add-assignment-dialog.js";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -792,6 +793,11 @@ export function JobDetailPage(): React.JSX.Element {
             )}
           </CardContent>
         </Card>
+      ) : null}
+
+      {/* Financial Summary */}
+      {job.pricingLines.length > 0 && can("view:pricing") ? (
+        <JobFinancialSummary jobId={id} />
       ) : null}
 
       {/* Status History */}

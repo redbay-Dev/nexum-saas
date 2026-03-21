@@ -626,3 +626,180 @@ describe("audit logging", () => {
     expect(actions).toContain("DELETE");
   });
 });
+
+// ── Pricing Depth ──
+
+describe("pricing line tax and variations", () => {
+  beforeEach(async () => {
+    await cleanupJobs(tenantDb);
+  });
+
+  it("should create pricing line with new fields", async () => {
+    const jobRes = await injectAs(app, "dispatcher", "POST", "/api/v1/jobs", {
+      name: "Pricing test",
+      jobTypeId: TEST_IDS.jobType.cartage,
+      customerId: TEST_IDS.company.customerA,
+    });
+    const jobId = (jobRes.json().data as Record<string, unknown>).id as string;
+
+    const res = await injectAs(app, "finance", "POST", `/api/v1/jobs/${jobId}/pricing-lines`, {
+      lineType: "revenue",
+      category: "cartage",
+      rateType: "per_tonne",
+      quantity: 100,
+      unitRate: 15,
+      total: 1500,
+    });
+
+    expect(res.statusCode).toBe(201);
+    const line = res.json().data as Record<string, unknown>;
+    expect(line.source).toBe("manual");
+    expect(line.isVariation).toBe(false);
+  });
+
+  it("should accept equipment and labour categories", async () => {
+    const jobRes = await injectAs(app, "dispatcher", "POST", "/api/v1/jobs", {
+      name: "Category test",
+      jobTypeId: TEST_IDS.jobType.cartage,
+      customerId: TEST_IDS.company.customerA,
+    });
+    const jobId = (jobRes.json().data as Record<string, unknown>).id as string;
+
+    for (const cat of ["equipment", "labour"]) {
+      const res = await injectAs(app, "finance", "POST", `/api/v1/jobs/${jobId}/pricing-lines`, {
+        lineType: "cost",
+        category: cat,
+        rateType: "flat",
+        total: 500,
+      });
+      expect(res.statusCode).toBe(201);
+    }
+  });
+
+  it("should create variation line with reason", async () => {
+    const jobRes = await injectAs(app, "dispatcher", "POST", "/api/v1/jobs", {
+      name: "Variation test",
+      jobTypeId: TEST_IDS.jobType.cartage,
+      customerId: TEST_IDS.company.customerA,
+    });
+    const jobId = (jobRes.json().data as Record<string, unknown>).id as string;
+
+    const res = await injectAs(app, "finance", "POST", `/api/v1/jobs/${jobId}/pricing-lines`, {
+      lineType: "revenue",
+      category: "cartage",
+      rateType: "per_tonne",
+      quantity: 20,
+      unitRate: 18,
+      total: 360,
+      isVariation: true,
+      variationReason: "Extra loads requested by customer",
+    });
+
+    expect(res.statusCode).toBe(201);
+    const line = res.json().data as Record<string, unknown>;
+    expect(line.isVariation).toBe(true);
+    expect(line.variationReason).toBe("Extra loads requested by customer");
+  });
+
+  it("should create audit log for pricing line operations", async () => {
+    const jobRes = await injectAs(app, "dispatcher", "POST", "/api/v1/jobs", {
+      name: "Pricing audit test",
+      jobTypeId: TEST_IDS.jobType.cartage,
+      customerId: TEST_IDS.company.customerA,
+    });
+    const jobId = (jobRes.json().data as Record<string, unknown>).id as string;
+
+    // Create
+    const createRes = await injectAs(app, "finance", "POST", `/api/v1/jobs/${jobId}/pricing-lines`, {
+      lineType: "revenue",
+      category: "hire",
+      rateType: "per_hour",
+      quantity: 8,
+      unitRate: 120,
+      total: 960,
+    });
+    const lineId = (createRes.json().data as Record<string, unknown>).id as string;
+
+    // Update
+    await injectAs(app, "finance", "PUT", `/api/v1/jobs/${jobId}/pricing-lines/${lineId}`, {
+      total: 1000,
+    });
+
+    // Delete
+    await injectAs(app, "finance", "DELETE", `/api/v1/jobs/${jobId}/pricing-lines/${lineId}`);
+
+    // Verify audit entries
+    const auditRows = await tenantDb.execute(
+      sql`SELECT action FROM audit_log WHERE entity_type = 'job_pricing_line' AND entity_id = ${lineId}::uuid ORDER BY created_at`,
+    ) as unknown as Array<Record<string, unknown>>;
+    const actions = auditRows.map((r) => r.action);
+    expect(actions).toContain("CREATE");
+    expect(actions).toContain("UPDATE");
+    expect(actions).toContain("DELETE");
+  });
+});
+
+// ── Financial Summary ──
+
+describe("financial summary", () => {
+  beforeEach(async () => {
+    await cleanupJobs(tenantDb);
+  });
+
+  it("should compute revenue, cost, profit, and margin", async () => {
+    const jobRes = await injectAs(app, "dispatcher", "POST", "/api/v1/jobs", {
+      name: "Financial summary test",
+      jobTypeId: TEST_IDS.jobType.cartage,
+      customerId: TEST_IDS.company.customerA,
+    });
+    const jobId = (jobRes.json().data as Record<string, unknown>).id as string;
+
+    // Add revenue line: $1000
+    await injectAs(app, "finance", "POST", `/api/v1/jobs/${jobId}/pricing-lines`, {
+      lineType: "revenue",
+      category: "cartage",
+      rateType: "per_tonne",
+      quantity: 100,
+      unitRate: 10,
+      total: 1000,
+    });
+
+    // Add cost line: $600
+    await injectAs(app, "finance", "POST", `/api/v1/jobs/${jobId}/pricing-lines`, {
+      lineType: "cost",
+      category: "subcontractor",
+      rateType: "per_tonne",
+      quantity: 100,
+      unitRate: 6,
+      total: 600,
+    });
+
+    const res = await injectAs(app, "finance", "GET", `/api/v1/jobs/${jobId}/financial-summary`);
+    expect(res.statusCode).toBe(200);
+
+    const data = res.json().data as Record<string, unknown>;
+    expect(data.totalRevenue).toBe(1000);
+    expect(data.totalCost).toBe(600);
+    expect(data.grossProfit).toBe(400);
+    expect(data.marginPercent).toBe(40);
+
+    const breakdown = data.categoryBreakdown as Array<Record<string, unknown>>;
+    expect(breakdown.length).toBe(2);
+  });
+
+  it("should return null margin when no revenue", async () => {
+    const jobRes = await injectAs(app, "dispatcher", "POST", "/api/v1/jobs", {
+      name: "No revenue test",
+      jobTypeId: TEST_IDS.jobType.cartage,
+      customerId: TEST_IDS.company.customerA,
+    });
+    const jobId = (jobRes.json().data as Record<string, unknown>).id as string;
+
+    const res = await injectAs(app, "finance", "GET", `/api/v1/jobs/${jobId}/financial-summary`);
+    expect(res.statusCode).toBe(200);
+
+    const data = res.json().data as Record<string, unknown>;
+    expect(data.totalRevenue).toBe(0);
+    expect(data.marginPercent).toBeNull();
+  });
+});

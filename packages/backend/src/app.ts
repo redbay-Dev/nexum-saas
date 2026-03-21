@@ -19,6 +19,9 @@ import { jobTypeRoutes } from "./routes/job-types.js";
 import { projectRoutes } from "./routes/projects.js";
 import { jobRoutes } from "./routes/jobs.js";
 import { schedulingRoutes } from "./routes/scheduling.js";
+import { organisationRoutes } from "./routes/organisation.js";
+import { userRoutes } from "./routes/users.js";
+import { auditLogRoutes } from "./routes/audit-log.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 
 /**
@@ -115,6 +118,9 @@ export function buildApp(): ReturnType<typeof Fastify> {
       void api.register(projectRoutes, { prefix: "/projects" });
       void api.register(jobRoutes, { prefix: "/jobs" });
       void api.register(schedulingRoutes, { prefix: "/scheduling" });
+      void api.register(organisationRoutes, { prefix: "/organisation" });
+      void api.register(userRoutes, { prefix: "/users" });
+      void api.register(auditLogRoutes, { prefix: "/audit-log" });
     },
     { prefix: "/api/v1" },
   );

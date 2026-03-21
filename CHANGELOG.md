@@ -2,6 +2,115 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.15.0] — 2026-03-21
+
+### Deepen Three Half-Built Features — Pricing, Scheduling, Admin
+
+**What was built:**
+
+Three areas that had basic CRUD but lacked business logic were deepened with real functionality.
+
+**Pricing Engine Depth:**
+- Variation line tracking (`isVariation`, `variationReason`) for mid-job pricing changes
+- Source tracking (`source`: manual/material/tip_fee/subcontractor) to trace how pricing lines were created
+- Planned vs actual tracking fields (`plannedQuantity`, `plannedUnitRate`, `plannedTotal`)
+- `equipment` and `labour` pricing categories added (spec required 9 categories, had 7)
+- `GET /api/v1/jobs/:id/financial-summary` — computes total revenue, total cost, gross profit, margin %, category breakdown
+- Audit logging on all pricing line CREATE/UPDATE/DELETE operations
+- `JobFinancialSummary` component on job detail page with color-coded margin indicators
+- Updated pricing dialog with variation toggle and conditional reason field
+- Tax fields explicitly excluded — tax is Xero's responsibility (DEC-168)
+
+**Scheduling Depth:**
+- Job status auto-transition on resource allocation: `confirmed → scheduled` (or `→ in_progress` if `scheduledStart` is past)
+- `PUT /api/v1/scheduling/deallocate/:id` — deallocation with reason capture, completed loads, notes
+- `POST /api/v1/scheduling/bulk-allocate` — allocate up to 300 resources in one request with per-allocation validation, partial failure handling, and auto status transition
+- Requirement fulfilment tracking in GET /scheduling response (`allocated` count, `fulfilled` boolean per asset requirement)
+- `DeallocationDialog` component with reason selection, completed loads, and notes
+
+**Settings/Admin:**
+- `GET/PUT /api/v1/organisation` — view and edit company profile, banking, timezone, payment terms
+- `GET /api/v1/users` — list all tenant users with role, status, ownership
+- `PUT /api/v1/users/:id/role` — change role (guards: no self-change, no last-owner demotion)
+- `PUT /api/v1/users/:id/status` — activate/deactivate user (guard: no self-deactivation)
+- `GET /api/v1/audit-log` — paginated, filterable audit log viewer (by action, entityType, userId, date range, search)
+- Settings layout with sidebar navigation (Organisation, Users, Job Types, Audit Log)
+- Organisation settings page — company details, banking (BSB/account), timezone, payment terms
+- User management page — role dropdowns, activate/deactivate buttons, owner badge
+- Audit log page — filterable table with expandable change detail panels
+
+**Database migrations:**
+- `0006_pricing_admin_scheduling.sql` — pricing line enrichment (planned/actual, variation, source), assignment deallocation fields
+- `0001_user_status.sql` (public) — user status column on tenant_users
+
+**Test counts:**
+- Before: 230 tests across 12 files
+- After: **254 tests across 14 files** (88 backend, 166 shared)
+- New: 24 integration tests covering pricing variations, financial summary, audit logging, organisation CRUD, user management, deallocation, bulk allocation, status auto-transitions
+
+**All checks pass:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — 254 tests, all passing
+- `pnpm build` — all packages build
+
+**Decisions made:**
+- DEC-168: No tax fields in Nexum pricing — tax is Xero's domain
+- DEC-169: Sequential test file execution for integration tests sharing a database
+
+**What's STILL MISSING (by area):**
+
+*Pricing Engine (doc 09):*
+- Customer rate cards (table + lookup + auto-apply)
+- Markup rules engine
+- Margin thresholds and warnings
+- Subcontractor rate auto-generation
+- Tip fee auto-generation from disposal locations
+- Pricing snapshots and immutability enforcement
+- Quote pricing lock/update modes
+- Surcharges and levies
+- Credits and negative pricing lines
+- Pricing templates and job type defaults
+- Daysheet-to-pricing flow
+- Rate review workflow
+- Bulk price updates
+
+*Scheduling (doc 07):*
+- Real-time WebSocket broadcast for multi-user scheduling
+- Smart recommendations (multi-factor scoring)
+- AI-driven auto-allocation
+- Timeline/Gantt view
+- Recurring schedules
+- Saved view presets
+- Compliance gates on allocation
+- Route and backhaul integration
+- Assignment notifications (SMS/push)
+
+*Admin (doc 18):*
+- Custom role builder UI (create/edit roles with permission picker)
+- User invitation flow (requires OpShield integration)
+- Session management
+- Per-user permission overrides
+- Feature toggles UI
+- Data export
+- Onboarding wizard
+
+*Not started:*
+- Dockets & Daysheets (doc 08) — next priority
+- Invoicing & RCTI (doc 10)
+- Xero integration (doc 11)
+- Compliance/SafeSpec integration (doc 12)
+- Communications/SMS (doc 13)
+- Portal (doc 14)
+- Documents/File management (doc 15)
+- AI features (doc 16)
+- Reporting (doc 17)
+- Map/GPS (doc 19)
+- DriverX API (doc 20)
+
+**What's next:**
+Continue the financial pipeline: **Dockets & Daysheets** (doc 08) → captures what happened on each job day, bridges completed work to billing. Then Invoicing (doc 10) to generate revenue.
+
 ## [0.14.0] — 2026-03-21
 
 ### Integration Tests — Full Business Logic Tests Against Real Database

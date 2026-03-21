@@ -49,6 +49,8 @@ export const tenantUsers = pgTable("tenant_users", {
   displayName: varchar("display_name", { length: 255 }),
   /** Email cached from OpShield (denormalised for convenience) */
   email: varchar("email", { length: 255 }),
+  /** Account status — active or deactivated */
+  status: varchar("status", { length: 20 }).notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -20,6 +20,7 @@ import {
 } from "@frontend/components/ui/select.js";
 import { useCreateJobPricingLine } from "@frontend/api/jobs.js";
 import { toast } from "sonner";
+import { Textarea } from "@frontend/components/ui/textarea.js";
 import { Plus } from "lucide-react";
 import {
   JOB_PRICING_LINE_TYPES,
@@ -51,6 +52,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   tip_fee: "Tip Fee",
   material: "Material",
   subcontractor: "Subcontractor",
+  equipment: "Equipment",
+  labour: "Labour",
   fuel_levy: "Fuel Levy",
   other: "Other",
 };
@@ -64,6 +67,8 @@ export function AddPricingLineDialog({ jobId }: AddPricingLineDialogProps): Reac
   const [quantity, setQuantity] = useState("");
   const [unitRate, setUnitRate] = useState("");
   const [total, setTotal] = useState("");
+  const [isVariation, setIsVariation] = useState(false);
+  const [variationReason, setVariationReason] = useState("");
 
   const createPricingLine = useCreateJobPricingLine(jobId);
 
@@ -83,6 +88,8 @@ export function AddPricingLineDialog({ jobId }: AddPricingLineDialogProps): Reac
     setQuantity("");
     setUnitRate("");
     setTotal("");
+    setIsVariation(false);
+    setVariationReason("");
   }
 
   function handleSubmit(e: React.FormEvent): void {
@@ -106,9 +113,11 @@ export function AddPricingLineDialog({ jobId }: AddPricingLineDialogProps): Reac
       quantity: parseFloat(quantity) || 0,
       unitRate: parseFloat(unitRate) || 0,
       total: totalValue,
+      isVariation,
     };
 
     if (description) data.description = description;
+    if (isVariation && variationReason) data.variationReason = variationReason;
 
     createPricingLine.mutate(data, {
       onSuccess: () => {
@@ -227,6 +236,27 @@ export function AddPricingLineDialog({ jobId }: AddPricingLineDialogProps): Reac
                 />
               </div>
             </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="isVariation"
+                checked={isVariation}
+                onChange={(e) => setIsVariation(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="isVariation" className="cursor-pointer">This is a variation line</Label>
+            </div>
+            {isVariation && (
+              <div className="grid gap-2">
+                <Label>Variation Reason</Label>
+                <Textarea
+                  value={variationReason}
+                  onChange={(e) => setVariationReason(e.target.value)}
+                  placeholder="Reason for variation..."
+                  rows={2}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
