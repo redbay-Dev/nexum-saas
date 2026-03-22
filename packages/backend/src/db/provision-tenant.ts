@@ -163,12 +163,33 @@ export async function migrateTenantSchema(schemaName: string): Promise<void> {
   }
 }
 
+export interface MigrationResult {
+  migrated: number;
+  skipped: number;
+  failed: number;
+  tenants: Array<{
+    schemaName: string;
+    status: "migrated" | "current" | "failed";
+    version: string | null;
+    error?: string;
+  }>;
+  errors: Array<{ schemaName: string; error: string }>;
+}
+
 /**
  * Apply pending migrations to ALL active tenant schemas.
  * Reads tenant list from public.tenants table.
+ * Returns structured results for reporting.
  */
-export async function migrateAllTenants(): Promise<void> {
+export async function migrateAllTenants(): Promise<MigrationResult> {
   const sql = postgres(config.database.url);
+  const result: MigrationResult = {
+    migrated: 0,
+    skipped: 0,
+    failed: 0,
+    tenants: [],
+    errors: [],
+  };
 
   try {
     const rows = await sql.unsafe<Array<{ schema_name: string }>>(
@@ -176,9 +197,80 @@ export async function migrateAllTenants(): Promise<void> {
     );
 
     for (const row of rows) {
-      await migrateTenantSchema(row.schema_name);
+      try {
+        // Check current state before migrating
+        const beforeCount = await getTenantMigrationCount(sql, row.schema_name);
+        await migrateTenantSchema(row.schema_name);
+        const afterCount = await getTenantMigrationCount(sql, row.schema_name);
+
+        const latestVersion = await getLatestMigrationName(sql, row.schema_name);
+
+        if (afterCount > beforeCount) {
+          result.migrated++;
+          result.tenants.push({
+            schemaName: row.schema_name,
+            status: "migrated",
+            version: latestVersion,
+          });
+        } else {
+          result.skipped++;
+          result.tenants.push({
+            schemaName: row.schema_name,
+            status: "current",
+            version: latestVersion,
+          });
+        }
+      } catch (err) {
+        result.failed++;
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        result.errors.push({ schemaName: row.schema_name, error: errorMessage });
+        result.tenants.push({
+          schemaName: row.schema_name,
+          status: "failed",
+          version: null,
+          error: errorMessage,
+        });
+      }
     }
   } finally {
     await sql.end();
+  }
+
+  return result;
+}
+
+/**
+ * Get the count of applied migrations for a tenant schema.
+ */
+async function getTenantMigrationCount(
+  sql: postgres.Sql,
+  schemaName: string,
+): Promise<number> {
+  try {
+    await sql.unsafe(`SET search_path TO "${schemaName}"`);
+    const rows = await sql.unsafe<Array<{ count: string }>>(
+      `SELECT count(*) as count FROM "_drizzle_migrations"`,
+    );
+    return Number(rows[0]?.count ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Get the name of the latest applied migration for a tenant schema.
+ */
+async function getLatestMigrationName(
+  sql: postgres.Sql,
+  schemaName: string,
+): Promise<string | null> {
+  try {
+    await sql.unsafe(`SET search_path TO "${schemaName}"`);
+    const rows = await sql.unsafe<Array<{ migration_name: string }>>(
+      `SELECT migration_name FROM "_drizzle_migrations" ORDER BY id DESC LIMIT 1`,
+    );
+    return rows[0]?.migration_name ?? null;
+  } catch {
+    return null;
   }
 }
