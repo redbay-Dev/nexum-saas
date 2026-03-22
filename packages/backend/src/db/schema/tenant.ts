@@ -1581,6 +1581,9 @@ export const invoices = pgTable(
     cancellationReason: text("cancellation_reason"),
     // Xero integration
     xeroInvoiceId: varchar("xero_invoice_id", { length: 100 }),
+    // PDF & billing run
+    pdfDocumentId: uuid("pdf_document_id"),
+    billingRunId: uuid("billing_run_id"),
     // Snapshot
     pricingSnapshot: jsonb("pricing_snapshot"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1681,6 +1684,9 @@ export const rctis = pgTable(
     disputeReason: text("dispute_reason"),
     // Remittance
     remittanceEmailedAt: timestamp("remittance_emailed_at", { withTimezone: true }),
+    // PDF documents
+    pdfDocumentId: uuid("pdf_document_id"),
+    remittancePdfDocumentId: uuid("remittance_pdf_document_id"),
     // Xero integration
     xeroBillId: varchar("xero_bill_id", { length: 100 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1800,6 +1806,381 @@ export const arApprovals = pgTable(
   (table) => [
     index("ar_approvals_job_id_idx").on(table.jobId),
     index("ar_approvals_status_idx").on(table.status),
+  ],
+);
+
+// ══════════════════════════════════════════════════════════════════
+// ── Document Management Tables (doc 15) ──
+// ══════════════════════════════════════════════════════════════════
+
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entityType: varchar("entity_type", { length: 20 }).notNull(),
+    entityId: uuid("entity_id").notNull(),
+    documentType: varchar("document_type", { length: 30 }).notNull(),
+    fileName: varchar("file_name", { length: 500 }).notNull(),
+    originalFileName: varchar("original_file_name", { length: 500 }).notNull(),
+    mimeType: varchar("mime_type", { length: 100 }).notNull(),
+    fileSize: integer("file_size").notNull(),
+    s3Key: text("s3_key").notNull(),
+    s3Bucket: varchar("s3_bucket", { length: 100 }).notNull(),
+    checksum: varchar("checksum", { length: 64 }),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    storageTier: varchar("storage_tier", { length: 10 }).notNull().default("hot"),
+    currentVersion: integer("current_version").notNull().default(1),
+    issueDate: varchar("issue_date", { length: 10 }),
+    expiryDate: varchar("expiry_date", { length: 10 }),
+    metadata: jsonb("metadata"),
+    notes: text("notes"),
+    uploadedBy: text("uploaded_by").notNull(),
+    uploadSource: varchar("upload_source", { length: 20 }).notNull().default("direct"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("documents_entity_idx").on(table.entityType, table.entityId),
+    index("documents_type_idx").on(table.documentType),
+    index("documents_status_idx").on(table.status),
+    index("documents_expiry_date_idx").on(table.expiryDate),
+    index("documents_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export const documentVersions = pgTable(
+  "document_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id").notNull().references(() => documents.id),
+    versionNumber: integer("version_number").notNull(),
+    fileName: varchar("file_name", { length: 500 }).notNull(),
+    mimeType: varchar("mime_type", { length: 100 }).notNull(),
+    fileSize: integer("file_size").notNull(),
+    s3Key: text("s3_key").notNull(),
+    checksum: varchar("checksum", { length: 64 }),
+    isCurrent: boolean("is_current").notNull().default(false),
+    uploadedBy: text("uploaded_by").notNull(),
+    uploadReason: text("upload_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("document_versions_document_id_idx").on(table.documentId),
+  ],
+);
+
+export const publicDocumentLinks = pgTable(
+  "public_document_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id").notNull().references(() => documents.id),
+    token: varchar("token", { length: 64 }).notNull().unique(),
+    passwordHash: varchar("password_hash", { length: 255 }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    maxDownloads: integer("max_downloads"),
+    downloadCount: integer("download_count").notNull().default(0),
+    lastAccessedAt: timestamp("last_accessed_at", { withTimezone: true }),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("public_document_links_token_idx").on(table.token),
+    index("public_document_links_document_id_idx").on(table.documentId),
+  ],
+);
+
+export const documentAccessLog = pgTable(
+  "document_access_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id").notNull().references(() => documents.id),
+    accessMethod: varchar("access_method", { length: 20 }).notNull(),
+    action: varchar("action", { length: 20 }).notNull(),
+    userId: text("user_id"),
+    ipAddress: varchar("ip_address", { length: 45 }),
+    userAgent: text("user_agent"),
+    publicLinkId: uuid("public_link_id").references(() => publicDocumentLinks.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("document_access_log_document_id_idx").on(table.documentId),
+    index("document_access_log_created_at_idx").on(table.createdAt),
+  ],
+);
+
+// ══════════════════════════════════════════════════════════════════
+// ── Communications Tables (doc 13) ──
+// ══════════════════════════════════════════════════════════════════
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    communicationType: varchar("communication_type", { length: 50 }).notNull(),
+    category: varchar("category", { length: 30 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    body: text("body").notNull(),
+    actionUrl: text("action_url"),
+    actionLabel: varchar("action_label", { length: 100 }),
+    entityType: varchar("entity_type", { length: 50 }),
+    entityId: uuid("entity_id"),
+    status: varchar("status", { length: 20 }).notNull().default("unread"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("notifications_user_id_idx").on(table.userId),
+    index("notifications_status_idx").on(table.userId, table.status),
+    index("notifications_created_at_idx").on(table.createdAt),
+    index("notifications_category_idx").on(table.category),
+  ],
+);
+
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().unique(),
+  globalEnabled: boolean("global_enabled").notNull().default(true),
+  pushEnabled: boolean("push_enabled").notNull().default(true),
+  emailEnabled: boolean("email_enabled").notNull().default(true),
+  smsEnabled: boolean("sms_enabled").notNull().default(true),
+  inAppEnabled: boolean("in_app_enabled").notNull().default(true),
+  quietHoursStart: varchar("quiet_hours_start", { length: 5 }),
+  quietHoursEnd: varchar("quiet_hours_end", { length: 5 }),
+  channelOverrides: jsonb("channel_overrides"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const emailQueue = pgTable(
+  "email_queue",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    toAddresses: jsonb("to_addresses").$type<string[]>().notNull(),
+    ccAddresses: jsonb("cc_addresses").$type<string[]>(),
+    bccAddresses: jsonb("bcc_addresses").$type<string[]>(),
+    subject: varchar("subject", { length: 500 }).notNull(),
+    htmlBody: text("html_body").notNull(),
+    textBody: text("text_body"),
+    attachments: jsonb("attachments"),
+    entityType: varchar("entity_type", { length: 50 }),
+    entityId: uuid("entity_id"),
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    errorMessage: text("error_message"),
+    retryCount: integer("retry_count").notNull().default(0),
+    maxRetries: integer("max_retries").notNull().default(3),
+    staggerDelayMs: integer("stagger_delay_ms").notNull().default(0),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("email_queue_status_idx").on(table.status),
+    index("email_queue_scheduled_at_idx").on(table.scheduledAt),
+    index("email_queue_entity_idx").on(table.entityType, table.entityId),
+  ],
+);
+
+export const communicationLog = pgTable(
+  "communication_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    channel: varchar("channel", { length: 10 }).notNull(),
+    communicationType: varchar("communication_type", { length: 50 }).notNull(),
+    recipient: text("recipient").notNull(),
+    subject: varchar("subject", { length: 500 }),
+    bodyPreview: text("body_preview"),
+    entityType: varchar("entity_type", { length: 50 }),
+    entityId: uuid("entity_id"),
+    status: varchar("status", { length: 20 }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    errorMessage: text("error_message"),
+    metadata: jsonb("metadata"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("communication_log_entity_idx").on(table.entityType, table.entityId),
+    index("communication_log_channel_idx").on(table.channel),
+    index("communication_log_created_at_idx").on(table.createdAt),
+    index("communication_log_recipient_idx").on(table.recipient),
+  ],
+);
+
+// ══════════════════════════════════════════════════════════════════
+// ── Xero Integration Tables (doc 11) ──
+// ══════════════════════════════════════════════════════════════════
+
+export const xeroConnection = pgTable("xero_connection", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  xeroTenantId: varchar("xero_tenant_id", { length: 100 }).notNull(),
+  xeroOrgName: varchar("xero_org_name", { length: 255 }),
+  status: varchar("status", { length: 20 }).notNull().default("disconnected"),
+  accessTokenEncrypted: text("access_token_encrypted"),
+  refreshTokenEncrypted: text("refresh_token_encrypted"),
+  tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+  scopes: text("scopes"),
+  connectedBy: text("connected_by"),
+  connectedAt: timestamp("connected_at", { withTimezone: true }),
+  disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  autoCreateContacts: boolean("auto_create_contacts").notNull().default(true),
+  autoSyncPayments: boolean("auto_sync_payments").notNull().default(true),
+  pollIntervalMinutes: integer("poll_interval_minutes").notNull().default(15),
+  batchSize: integer("batch_size").notNull().default(50),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const xeroAccounts = pgTable(
+  "xero_accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    xeroAccountId: varchar("xero_account_id", { length: 100 }).notNull(),
+    code: varchar("code", { length: 20 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    accountType: varchar("account_type", { length: 30 }).notNull(),
+    taxType: varchar("tax_type", { length: 30 }),
+    status: varchar("status", { length: 20 }).notNull().default("ACTIVE"),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("xero_accounts_code_idx").on(table.code),
+    index("xero_accounts_type_idx").on(table.accountType),
+  ],
+);
+
+export const xeroTaxRates = pgTable("xero_tax_rates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 100 }).notNull(),
+  taxType: varchar("tax_type", { length: 30 }).notNull(),
+  effectiveRate: numeric("effective_rate", { precision: 8, scale: 4 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("ACTIVE"),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const xeroTrackingCategories = pgTable("xero_tracking_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  xeroCategoryId: varchar("xero_category_id", { length: 100 }).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("ACTIVE"),
+  options: jsonb("options"),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const xeroAccountMappings = pgTable(
+  "xero_account_mappings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pricingCategory: varchar("pricing_category", { length: 50 }).notNull(),
+    revenueAccountCode: varchar("revenue_account_code", { length: 20 }),
+    expenseAccountCode: varchar("expense_account_code", { length: 20 }),
+    taxType: varchar("tax_type", { length: 30 }),
+    trackingCategoryId: varchar("tracking_category_id", { length: 100 }),
+    trackingOptionId: varchar("tracking_option_id", { length: 100 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("xero_account_mappings_category_idx").on(table.pricingCategory),
+  ],
+);
+
+export const xeroContactLinks = pgTable(
+  "xero_contact_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id).unique(),
+    xeroContactId: varchar("xero_contact_id", { length: 100 }).notNull(),
+    isCustomer: boolean("is_customer").notNull().default(false),
+    isSupplier: boolean("is_supplier").notNull().default(false),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("xero_contact_links_xero_id_idx").on(table.xeroContactId),
+  ],
+);
+
+export const xeroSyncLog = pgTable(
+  "xero_sync_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    syncType: varchar("sync_type", { length: 30 }).notNull(),
+    direction: varchar("direction", { length: 10 }).notNull(),
+    resourceId: uuid("resource_id"),
+    xeroResourceId: varchar("xero_resource_id", { length: 100 }),
+    status: varchar("status", { length: 20 }).notNull(),
+    errorMessage: text("error_message"),
+    requestData: jsonb("request_data"),
+    responseData: jsonb("response_data"),
+    triggeredBy: text("triggered_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("xero_sync_log_type_idx").on(table.syncType),
+    index("xero_sync_log_status_idx").on(table.status),
+    index("xero_sync_log_resource_idx").on(table.resourceId),
+    index("xero_sync_log_created_at_idx").on(table.createdAt),
+  ],
+);
+
+// ══════════════════════════════════════════════════════════════════
+// ── Batch Billing Tables (doc 10 deepening) ──
+// ══════════════════════════════════════════════════════════════════
+
+export const billingRuns = pgTable(
+  "billing_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    periodStart: varchar("period_start", { length: 10 }).notNull(),
+    periodEnd: varchar("period_end", { length: 10 }).notNull(),
+    customerCount: integer("customer_count").notNull().default(0),
+    invoiceCount: integer("invoice_count").notNull().default(0),
+    totalAmount: numeric("total_amount", { precision: 14, scale: 2 }).notNull().default("0"),
+    skippedCount: integer("skipped_count").notNull().default(0),
+    errorCount: integer("error_count").notNull().default(0),
+    previewData: jsonb("preview_data"),
+    reportData: jsonb("report_data"),
+    startedBy: text("started_by").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("billing_runs_status_idx").on(table.status),
+    index("billing_runs_period_idx").on(table.periodStart, table.periodEnd),
+  ],
+);
+
+export const billingRunItems = pgTable(
+  "billing_run_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    billingRunId: uuid("billing_run_id").notNull().references(() => billingRuns.id),
+    customerId: uuid("customer_id").notNull().references(() => companies.id),
+    invoiceId: uuid("invoice_id").references(() => invoices.id),
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    jobCount: integer("job_count").notNull().default(0),
+    estimatedTotal: numeric("estimated_total", { precision: 14, scale: 2 }).notNull().default("0"),
+    actualTotal: numeric("actual_total", { precision: 14, scale: 2 }),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("billing_run_items_run_id_idx").on(table.billingRunId),
+    index("billing_run_items_customer_id_idx").on(table.customerId),
   ],
 );
 

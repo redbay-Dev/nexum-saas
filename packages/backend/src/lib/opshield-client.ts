@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { config } from "../config.js";
 
 /**
@@ -60,11 +61,11 @@ export function extractBearerToken(
  * Verify an OpShield webhook signature (HMAC-SHA256).
  * See /home/redbay/OpShield/docs/03-INTEGRATION-ARCHITECTURE.md for webhook security.
  */
-export async function verifyWebhookSignature(
+export function verifyWebhookSignature(
   rawBody: string,
   signature: string,
   timestamp: string,
-): Promise<boolean> {
+): boolean {
   // Replay protection: reject if timestamp is older than 5 minutes
   const eventTime = Number(timestamp);
   const now = Math.floor(Date.now() / 1000);
@@ -72,25 +73,24 @@ export async function verifyWebhookSignature(
     return false;
   }
 
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(config.opshield.webhookSecret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
+  // OpShield sends signature as "t=<timestamp>,v1=<hmac>"
+  // where HMAC-SHA256 is over "<timestamp>.<body>"
+  const v1Match = signature.match(/v1=([a-f0-9]+)/);
+  const receivedHmac = v1Match?.[1];
+  if (!receivedHmac) return false;
 
-  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody));
-  const computed = `sha256=${Buffer.from(sig).toString("hex")}`;
+  const signedContent = `${timestamp}.${rawBody}`;
+  const computed = createHmac("sha256", config.opshield.webhookSecret)
+    .update(signedContent)
+    .digest("hex");
 
   // Constant-time comparison
-  if (computed.length !== signature.length) return false;
-  const a = encoder.encode(computed);
-  const b = encoder.encode(signature);
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= (a[i] ?? 0) ^ (b[i] ?? 0);
+  try {
+    return timingSafeEqual(
+      Buffer.from(computed),
+      Buffer.from(receivedHmac),
+    );
+  } catch {
+    return false;
   }
-  return result === 0;
 }

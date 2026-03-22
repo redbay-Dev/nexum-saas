@@ -2,6 +2,137 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.19.0] — 2026-03-22
+
+### Documents, Communications, Xero Integration & Batch Billing
+
+**What was built:**
+
+Complete implementation of four major systems: Document Management (doc 15), Communications/Email (doc 13), Xero Integration (doc 11), and Invoice/RCTI deepening (doc 10) — batch billing runs, PDF generation, and remittance advice email delivery.
+
+**New constants (30+ arrays):**
+- Document: `DOCUMENT_STATUSES`, `DOCUMENT_TYPES` (29 types), `DOCUMENT_ENTITY_TYPES`, `STORAGE_TIERS`, `DOCUMENT_ACCESS_METHODS`
+- Communications: `NOTIFICATION_CHANNELS`, `NOTIFICATION_CATEGORIES`, `EMAIL_STATUSES`, `SMS_STATUSES`, `NOTIFICATION_STATUSES`, `COMMUNICATION_TYPES` (24 event types)
+- Xero: `XERO_CONNECTION_STATUSES`, `XERO_SYNC_TYPES`, `XERO_SYNC_DIRECTIONS`, `XERO_SYNC_STATUSES`, `XERO_TAX_TYPES`, `XERO_ACCOUNT_TYPES`
+- Billing: `BILLING_RUN_STATUSES`
+
+**New permissions (6):**
+- `upload:documents`, `download:documents`, `share:documents`, `admin:documents`
+- `manage:notifications`, `view:notifications`
+
+**New database tables (20) + updates:**
+- Documents: `documents`, `document_versions`, `public_document_links`, `document_access_log`
+- Communications: `notifications`, `notification_preferences`, `email_queue`, `communication_log`
+- Xero: `xero_connection`, `xero_accounts`, `xero_tax_rates`, `xero_tracking_categories`, `xero_account_mappings`, `xero_contact_links`, `xero_sync_log`
+- Billing: `billing_runs`, `billing_run_items`
+- Updated `invoices` with `pdf_document_id`, `billing_run_id`
+- Updated `rctis` with `pdf_document_id`, `remittance_pdf_document_id`
+
+**New backend services (6):**
+- `s3-client.ts` — DO Spaces file operations, presigned URLs, human-readable paths, standard naming
+- `email-service.ts` — SMTP delivery via nodemailer, retry logic, template variable substitution
+- `notification-service.ts` — Channel routing per notification type, user preference resolution, quiet hours
+- `pdf-generator.ts` — Handlebars invoice/RCTI templates, Puppeteer HTML-to-PDF, draft watermarks
+- `xero-client.ts` — OAuth2 PKCE flow, AES-256-GCM token encryption, contact/invoice/bill sync, webhook validation
+
+**New backend routes (4 route files, ~100+ endpoints):**
+
+*Document routes (`/api/v1/documents`):*
+- CRUD, presigned upload URLs, download URLs, version management, public share links
+- Expiring documents dashboard, batch delete, restore from trash, access logging
+
+*Notification routes (`/api/v1/notifications`):*
+- List with unread count, mark read/dismissed, mark all read
+- Notification preferences (per-user, per-type channel overrides, quiet hours)
+- Email queue management (queue, process, status)
+- Communication log (per-entity history across all channels)
+
+*Xero routes (`/api/v1/xero`):*
+- OAuth2 PKCE connect/disconnect flow with PKCE state management
+- Chart of accounts, tax rates, tracking categories sync from Xero
+- Account code mappings (pricing category → Xero account codes)
+- Contact linking (bidirectional, auto-create in Xero)
+- Invoice sync to Xero (batch, ACCREC, with line items and account codes)
+- RCTI/bill sync to Xero (batch, ACCPAY, auto-create missing contacts)
+- Payment webhook endpoint with HMAC-SHA256 validation
+- Reconciliation dashboard (synced vs unsynced counts)
+- Sync log with filters
+
+*Billing run routes (`/api/v1/billing-runs`):*
+- Billing run preview (estimate per customer before generating)
+- Batch invoice generation from AR-approved charges
+- Batch verify and batch send invoices
+- Invoice PDF preview (draft watermark for unfinished invoices)
+- Invoice PDF generation and S3 storage on send
+- Remittance advice PDF generation and email queuing for RCTIs
+- Billing run detail with per-customer item status
+
+**New frontend pages (5 pages + 4 API hook files):**
+- Document manager — entity type tabs, filters, upload dialog, expiring documents warning
+- Xero settings — connection status, sync settings, account mappings, contact links, sync log, reconciliation
+- Notification preferences — global toggles, quiet hours, per-category channel overrides
+- Billing runs list — status badges, period, invoice count, totals
+- Billing run detail — summary cards, items table, batch verify/send actions
+
+**Navigation updates:**
+- "Documents" added to Operations sidebar section
+- "Billing Runs" added to Finance sidebar section
+- "Xero" and "Notifications" added to Settings layout
+
+**Migration:**
+- `0016_documents_comms_xero.sql` — 20 new tables, 4 column additions, comprehensive indexes
+
+**Test counts:**
+- Before: 631 tests (286 shared + 339 backend + 4 pdf + 2 frontend)
+- After: **716 tests** (286 shared + 424 backend + 4 pdf + 2 frontend) — **85 new tests**
+- New unit tests: s3-client (12), notification-service (16), email-service (19), pdf-generator (18), xero-client (11)
+- New schema tests: included in shared package build verification
+
+**All checks pass:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` (unit) — 320 backend unit tests passing
+- `pnpm build` — all packages build
+
+**What's next:**
+Continue deepening these systems with BullMQ workers for async email processing, WebSocket real-time notifications, and complete the remaining doc 10 features (supplier invoices, statements, disputes).
+
+**What's STILL MISSING:**
+
+*Doc 15 (Documents) — deferred:*
+- Image optimisation (WebP conversion)
+- Storage tier lifecycle policies
+- Bulk rename/move operations
+- Document search across all metadata
+- Quick access (recent, starred/pinned)
+- Storage dashboard (space usage analytics)
+- Document metadata auto-sync to entity fields (licence expiry → driver record)
+
+*Doc 13 (Communications) — deferred:*
+- SMS provider integration (Twilio/Sinch)
+- Browser push notifications (service worker registration)
+- Mobile push (APNs/FCM for DriverX)
+- WebSocket real-time data propagation
+- SMS conversations and reply parsing
+- BullMQ workers for async email/notification processing
+- Automated polling jobs (overdue invoices, unallocated jobs)
+
+*Doc 11 (Xero) — deferred:*
+- Credit note sync to Xero (ACCECCREDIT)
+- Per-customer/per-line account code overrides
+- Tracking category auto-assignment from Nexum data
+- Payment polling fallback (periodic check for missed webhooks)
+- Full reconciliation with mismatch resolution
+- Supplier invoice sync (AP beyond RCTI)
+- Xero contact import (Xero → Nexum)
+
+*Doc 10 (Invoicing) — still deferred from v0.18.0:*
+- Supplier invoice recording and matching
+- Customer and contractor statements with ageing
+- Invoice dispute tracking with resolution workflow
+- Missing supplier invoice detection
+- 7-year retention with cold storage archival
+
 ## [0.18.0] — 2026-03-22
 
 ### Invoicing & RCTI System — Doc 10 Core Implementation

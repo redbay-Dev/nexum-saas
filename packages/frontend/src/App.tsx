@@ -55,6 +55,11 @@ import { RctiDetailPage } from "@frontend/pages/rctis/detail.js";
 import { GenerateRctiPage } from "@frontend/pages/rctis/generate.js";
 import { CreditDashboardPage } from "@frontend/pages/credit/index.js";
 import { InvoicingSettingsPage } from "@frontend/pages/settings/invoicing.js";
+import { DocumentsPage } from "@frontend/pages/documents/index.js";
+import { BillingRunsPage } from "@frontend/pages/billing-runs/index.js";
+import { BillingRunDetailPage } from "@frontend/pages/billing-runs/detail.js";
+import { XeroSettingsPage } from "@frontend/pages/settings/xero.js";
+import { NotificationSettingsPage } from "@frontend/pages/settings/notifications.js";
 
 export function App(): React.JSX.Element {
   return (
@@ -108,6 +113,9 @@ export function App(): React.JSX.Element {
         <Route path="rctis/generate" element={<GenerateRctiPage />} />
         <Route path="rctis/:id" element={<RctiDetailPage />} />
         <Route path="credit" element={<CreditDashboardPage />} />
+        <Route path="documents" element={<DocumentsPage />} />
+        <Route path="billing-runs" element={<BillingRunsPage />} />
+        <Route path="billing-runs/:id" element={<BillingRunDetailPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/new" element={<CreateProjectPage />} />
         <Route path="projects/:id" element={<ProjectDetailPage />} />
@@ -125,6 +133,8 @@ export function App(): React.JSX.Element {
           <Route path="pricing-templates" element={<PricingTemplatesSettingsPage />} />
           <Route path="pricing-templates/:id" element={<PricingTemplatesSettingsPage />} />
           <Route path="invoicing" element={<InvoicingSettingsPage />} />
+          <Route path="xero" element={<XeroSettingsPage />} />
+          <Route path="notifications" element={<NotificationSettingsPage />} />
         </Route>
       </Route>
 

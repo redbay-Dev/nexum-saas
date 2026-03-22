@@ -68,6 +68,23 @@ import {
   DISPUTE_STATUSES,
   DISPUTE_RESOLUTION_TYPES,
   CREDIT_TRANSACTION_TYPES,
+  DOCUMENT_STATUSES,
+  DOCUMENT_TYPES,
+  DOCUMENT_ENTITY_TYPES,
+  STORAGE_TIERS,
+  DOCUMENT_ACCESS_METHODS,
+  NOTIFICATION_CHANNELS,
+  NOTIFICATION_CATEGORIES,
+  EMAIL_STATUSES,
+  NOTIFICATION_STATUSES,
+  COMMUNICATION_TYPES,
+  XERO_CONNECTION_STATUSES,
+  XERO_SYNC_TYPES,
+  XERO_SYNC_DIRECTIONS,
+  XERO_SYNC_STATUSES,
+  XERO_TAX_TYPES,
+  XERO_ACCOUNT_TYPES,
+  BILLING_RUN_STATUSES,
 } from "../constants/index.js";
 
 // ── Base Entity Fields ──
@@ -1381,3 +1398,275 @@ export const createPricingAllocationSchema = z.object({
 });
 
 export const updatePricingAllocationSchema = createPricingAllocationSchema.partial();
+
+// ══════════════════════════════════════════════════════════════════
+// ── Document Management Schemas (doc 15) ──
+// ══════════════════════════════════════════════════════════════════
+
+export const documentStatusSchema = z.enum(DOCUMENT_STATUSES);
+export const documentTypeSchema = z.enum(DOCUMENT_TYPES);
+export const documentEntityTypeSchema = z.enum(DOCUMENT_ENTITY_TYPES);
+export const storageTierSchema = z.enum(STORAGE_TIERS);
+export const documentAccessMethodSchema = z.enum(DOCUMENT_ACCESS_METHODS);
+
+/** Type-specific metadata for documents. */
+export const documentMetadataSchema = z.object({
+  // Common
+  documentNumber: z.string().max(100).optional(),
+  issuer: z.string().max(255).optional(),
+  // Insurance
+  policyNumber: z.string().max(100).optional(),
+  coverageAmount: z.number().optional(),
+  insurer: z.string().max(255).optional(),
+  // Medical
+  providerName: z.string().max(255).optional(),
+  certificateNumber: z.string().max(100).optional(),
+  // DG
+  licenceNumber: z.string().max(100).optional(),
+  dgClasses: z.array(z.string()).optional(),
+  // Service records
+  serviceProvider: z.string().max(255).optional(),
+  serviceType: z.string().max(100).optional(),
+  odometerReading: z.number().optional(),
+  // Qualification
+  qualificationType: z.string().max(100).optional(),
+  issuingBody: z.string().max(255).optional(),
+  competencyLevel: z.string().max(100).optional(),
+}).passthrough();
+
+/** Upload a new document. */
+export const uploadDocumentSchema = z.object({
+  entityType: documentEntityTypeSchema,
+  entityId: z.uuid(),
+  documentType: documentTypeSchema,
+  fileName: z.string().min(1).max(500),
+  mimeType: z.string().max(100),
+  fileSize: z.number().int().min(1),
+  issueDate: z.string().optional(),
+  expiryDate: z.string().optional(),
+  metadata: documentMetadataSchema.optional(),
+  notes: z.string().max(2000).optional(),
+});
+
+/** Update document metadata. */
+export const updateDocumentSchema = z.object({
+  documentType: documentTypeSchema.optional(),
+  fileName: z.string().min(1).max(500).optional(),
+  issueDate: z.string().optional(),
+  expiryDate: z.string().optional(),
+  status: documentStatusSchema.optional(),
+  metadata: documentMetadataSchema.optional(),
+  notes: z.string().max(2000).optional(),
+});
+
+/** Create a public share link. */
+export const createPublicLinkSchema = z.object({
+  documentId: z.uuid(),
+  expiryDays: z.number().int().min(1).max(90).default(30),
+  password: z.string().min(6).max(100).optional(),
+  maxDownloads: z.number().int().min(1).optional(),
+});
+
+/** Query documents with filters. */
+export const documentQuerySchema = z.object({
+  entityType: documentEntityTypeSchema.optional(),
+  entityId: z.uuid().optional(),
+  documentType: documentTypeSchema.optional(),
+  status: documentStatusSchema.optional(),
+  search: z.string().optional(),
+  expiringWithinDays: z.number().int().min(1).optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+
+/** Batch document operation. */
+export const batchDocumentActionSchema = z.object({
+  documentIds: z.array(z.uuid()).min(1).max(100),
+});
+
+// ══════════════════════════════════════════════════════════════════
+// ── Communications Schemas (doc 13) ──
+// ══════════════════════════════════════════════════════════════════
+
+export const notificationChannelSchema = z.enum(NOTIFICATION_CHANNELS);
+export const notificationCategorySchema = z.enum(NOTIFICATION_CATEGORIES);
+export const emailStatusSchema = z.enum(EMAIL_STATUSES);
+export const notificationStatusSchema = z.enum(NOTIFICATION_STATUSES);
+export const communicationTypeSchema = z.enum(COMMUNICATION_TYPES);
+
+/** Queue an email for delivery. */
+export const queueEmailSchema = z.object({
+  to: z.array(z.email()).min(1).max(50),
+  cc: z.array(z.email()).optional(),
+  bcc: z.array(z.email()).optional(),
+  subject: z.string().min(1).max(500),
+  htmlBody: z.string(),
+  textBody: z.string().optional(),
+  attachments: z.array(z.object({
+    fileName: z.string(),
+    mimeType: z.string(),
+    documentId: z.uuid().optional(),
+    content: z.string().optional(),
+  })).optional(),
+  entityType: z.string().max(50).optional(),
+  entityId: z.uuid().optional(),
+  scheduledAt: z.string().optional(),
+  staggerDelayMs: z.number().int().min(0).max(300000).optional(),
+});
+
+/** Update notification preferences. */
+export const updateNotificationPreferencesSchema = z.object({
+  globalEnabled: z.boolean().optional(),
+  pushEnabled: z.boolean().optional(),
+  emailEnabled: z.boolean().optional(),
+  smsEnabled: z.boolean().optional(),
+  inAppEnabled: z.boolean().optional(),
+  quietHoursStart: z.string().max(5).optional(),
+  quietHoursEnd: z.string().max(5).optional(),
+  channelOverrides: z.record(
+    communicationTypeSchema,
+    z.object({
+      push: z.boolean().optional(),
+      email: z.boolean().optional(),
+      sms: z.boolean().optional(),
+      inApp: z.boolean().optional(),
+    }),
+  ).optional(),
+});
+
+/** Query notifications. */
+export const notificationQuerySchema = z.object({
+  status: notificationStatusSchema.optional(),
+  category: notificationCategorySchema.optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+
+/** Mark notifications as read/dismissed. */
+export const markNotificationsSchema = z.object({
+  notificationIds: z.array(z.uuid()).min(1).max(100),
+  status: z.enum(["read", "dismissed"] as const),
+});
+
+/** Query communication log. */
+export const communicationLogQuerySchema = z.object({
+  entityType: z.string().max(50).optional(),
+  entityId: z.uuid().optional(),
+  channel: notificationChannelSchema.optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  search: z.string().optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+
+// ══════════════════════════════════════════════════════════════════
+// ── Xero Integration Schemas (doc 11) ──
+// ══════════════════════════════════════════════════════════════════
+
+export const xeroConnectionStatusSchema = z.enum(XERO_CONNECTION_STATUSES);
+export const xeroSyncTypeSchema = z.enum(XERO_SYNC_TYPES);
+export const xeroSyncDirectionSchema = z.enum(XERO_SYNC_DIRECTIONS);
+export const xeroSyncStatusSchema = z.enum(XERO_SYNC_STATUSES);
+export const xeroTaxTypeSchema = z.enum(XERO_TAX_TYPES);
+export const xeroAccountTypeSchema = z.enum(XERO_ACCOUNT_TYPES);
+export const billingRunStatusSchema = z.enum(BILLING_RUN_STATUSES);
+
+/** Xero account code mapping. */
+export const xeroAccountMappingSchema = z.object({
+  pricingCategory: z.string().max(50),
+  revenueAccountCode: z.string().max(20).optional(),
+  expenseAccountCode: z.string().max(20).optional(),
+  taxType: xeroTaxTypeSchema.optional(),
+  trackingCategoryId: z.string().max(100).optional(),
+  trackingOptionId: z.string().max(100).optional(),
+});
+
+export const updateXeroAccountMappingSchema = xeroAccountMappingSchema.partial();
+
+/** Xero sync settings. */
+export const xeroSyncSettingsSchema = z.object({
+  autoCreateContacts: z.boolean().default(true),
+  autoSyncPayments: z.boolean().default(true),
+  pollIntervalMinutes: z.number().int().min(5).max(60).default(15),
+  batchSize: z.number().int().min(1).max(50).default(50),
+});
+
+/** Batch sync invoices to Xero. */
+export const xeroSyncInvoicesSchema = z.object({
+  invoiceIds: z.array(z.uuid()).min(1).max(50),
+});
+
+/** Batch sync RCTIs as bills to Xero. */
+export const xeroSyncBillsSchema = z.object({
+  rctiIds: z.array(z.uuid()).min(1).max(50),
+});
+
+/** Xero webhook payload validation. */
+export const xeroWebhookEventSchema = z.object({
+  resourceUrl: z.string(),
+  resourceId: z.string(),
+  eventDateUtc: z.string(),
+  eventType: z.string(),
+  eventCategory: z.string(),
+  tenantId: z.string(),
+});
+
+/** Link Nexum company to Xero contact. */
+export const xeroLinkContactSchema = z.object({
+  companyId: z.uuid(),
+  xeroContactId: z.string().max(100),
+});
+
+/** Reconciliation query. */
+export const xeroReconciliationQuerySchema = z.object({
+  resourceType: z.enum(["invoice", "bill", "contact"] as const),
+  status: z.enum(["matched", "mismatched", "missing", "extra"] as const).optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+
+/** Force match a reconciliation mismatch. */
+export const xeroForceMatchSchema = z.object({
+  resourceType: z.enum(["invoice", "bill", "contact"] as const),
+  nexumId: z.uuid(),
+  xeroId: z.string().max(100),
+  reason: z.string().min(1).max(500),
+});
+
+// ══════════════════════════════════════════════════════════════════
+// ── Batch Billing Schemas (doc 10 deepening) ──
+// ══════════════════════════════════════════════════════════════════
+
+/** Start a billing run. */
+export const createBillingRunSchema = z.object({
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  customerIds: z.array(z.uuid()).optional(),
+});
+
+/** Preview billing run results. */
+export const billingRunPreviewSchema = z.object({
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  customerIds: z.array(z.uuid()).optional(),
+});
+
+/** Batch verify invoices. */
+export const batchVerifyInvoicesSchema = z.object({
+  invoiceIds: z.array(z.uuid()).min(1).max(100),
+  notes: z.string().max(2000).optional(),
+});
+
+/** Batch send invoices. */
+export const batchSendInvoicesSchema = z.object({
+  invoiceIds: z.array(z.uuid()).min(1).max(100),
+  sendToXero: z.boolean().default(false),
+  sendEmail: z.boolean().default(false),
+});
+
+/** Send remittance advice. */
+export const sendRemittanceSchema = z.object({
+  rctiIds: z.array(z.uuid()).min(1).max(50),
+  includeDocketImages: z.boolean().default(false),
+});

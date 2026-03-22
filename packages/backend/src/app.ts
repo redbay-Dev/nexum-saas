@@ -35,6 +35,10 @@ import { invoiceRoutes } from "./routes/invoices.js";
 import { rctiRoutes } from "./routes/rctis.js";
 import { creditRoutes } from "./routes/credit.js";
 import { invoiceSettingsRoutes } from "./routes/invoice-settings.js";
+import { documentRoutes } from "./routes/documents.js";
+import { notificationRoutes } from "./routes/notifications.js";
+import { xeroRoutes } from "./routes/xero.js";
+import { billingRunRoutes } from "./routes/billing-runs.js";
 
 /**
  * Build the Fastify application instance.
@@ -151,6 +155,18 @@ export function buildApp(): ReturnType<typeof Fastify> {
       void api.register(rctiRoutes, { prefix: "/rctis" });
       void api.register(creditRoutes, { prefix: "/credit" });
       void api.register(invoiceSettingsRoutes, { prefix: "/invoice-settings" });
+
+      // Document management routes
+      void api.register(documentRoutes, { prefix: "/documents" });
+
+      // Communications & notifications routes
+      void api.register(notificationRoutes, { prefix: "/notifications" });
+
+      // Xero integration routes
+      void api.register(xeroRoutes, { prefix: "/xero" });
+
+      // Billing run routes
+      void api.register(billingRunRoutes, { prefix: "/billing-runs" });
     },
     { prefix: "/api/v1" },
   );

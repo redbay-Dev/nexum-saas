@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useLocation } from "react-router";
 import {
+  Bell,
   Briefcase,
   Building2,
   CalendarClock,
@@ -11,6 +12,7 @@ import {
   FolderKanban,
   Globe,
   LayoutDashboard,
+  Link2,
   LogOut,
   MapPin,
   Package,
@@ -20,6 +22,7 @@ import {
   Truck,
   UserRound,
   Users,
+  Wallet,
 } from "lucide-react";
 import { signOut } from "@frontend/lib/auth-client.js";
 import { useAuth } from "@frontend/hooks/use-auth.js";
@@ -74,6 +77,7 @@ const OPERATIONS_NAV: NavItem[] = [
   { to: "/employees", label: "Drivers & Staff", icon: Users },
   { to: "/assets", label: "Assets", icon: Truck },
   { to: "/materials", label: "Materials", icon: Package },
+  { to: "/documents", label: "Documents", icon: FileText },
 ];
 
 const FINANCE_NAV: NavItem[] = [
@@ -81,12 +85,15 @@ const FINANCE_NAV: NavItem[] = [
   { to: "/invoices", label: "Invoices", icon: FileText },
   { to: "/rctis", label: "RCTIs", icon: Receipt },
   { to: "/credit", label: "Credit", icon: CreditCard },
+  { to: "/billing-runs", label: "Billing Runs", icon: Wallet },
 ];
 
 const SETTINGS_NAV: NavItem[] = [
   { to: "/settings/organisation", label: "Organisation", icon: Building2 },
   { to: "/settings/users", label: "Users", icon: Users },
   { to: "/settings/job-types", label: "Job Types", icon: SlidersHorizontal },
+  { to: "/settings/xero", label: "Xero", icon: Link2 },
+  { to: "/settings/notifications", label: "Notifications", icon: Bell },
 ];
 
 const BREADCRUMB_MAP: Record<string, string> = {
@@ -118,7 +125,11 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/rctis": "RCTIs",
   "/rctis/generate": "Generate RCTI",
   "/credit": "Credit Monitoring",
+  "/documents": "Documents",
+  "/billing-runs": "Billing Runs",
   "/settings/job-types": "Job Types",
+  "/settings/xero": "Xero Integration",
+  "/settings/notifications": "Notifications",
 };
 
 function getInitials(email: string): string {
@@ -184,7 +195,9 @@ export function AppShell(): React.JSX.Element {
                       ? "Material Detail"
                       : location.pathname.startsWith("/daysheets/")
                         ? "Daysheet Detail"
-                        : "Nexum");
+                        : location.pathname.startsWith("/billing-runs/")
+                          ? "Billing Run Detail"
+                          : "Nexum");
 
   async function handleSignOut(): Promise<void> {
     // signOut() clears the local cookie and redirects to OpShield login

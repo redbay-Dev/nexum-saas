@@ -87,7 +87,7 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      const valid = await verifyWebhookSignature(
+      const valid = verifyWebhookSignature(
         rawBody,
         signature,
         timestamp,
@@ -222,9 +222,19 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
               ? payload.data["ownerName"]
               : null;
 
+          // Check if already provisioned (idempotency)
+          const existingTenant = await findTenantByOpshieldId(payload.tenantId);
+          if (existingTenant) {
+            request.log.info(
+              { opshieldTenantId: payload.tenantId },
+              "Tenant already provisioned, skipping",
+            );
+            break;
+          }
+
           // Create local tenant record
           const tenantId = crypto.randomUUID();
-          const schemaName = `tenant_${tenantId}`;
+          const schemaName = `tenant_${tenantId.replace(/-/g, "")}`;
 
           await db.insert(tenants).values({
             id: tenantId,

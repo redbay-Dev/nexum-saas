@@ -673,3 +673,266 @@ export const AUDIT_ACTIONS = [
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+// ══════════════════════════════════════════════════════════════════
+// ── Document Management Constants (doc 15) ──
+// ══════════════════════════════════════════════════════════════════
+
+// ── Document Statuses ──
+export const DOCUMENT_STATUSES = [
+  "active",
+  "expired",
+  "pending_approval",
+  "archived",
+] as const;
+
+export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
+
+// ── Document Types (by purpose) ──
+export const DOCUMENT_TYPES = [
+  "licence",
+  "medical",
+  "dg_certificate",
+  "qualification",
+  "induction",
+  "registration",
+  "ctp_insurance",
+  "comprehensive_insurance",
+  "roadworthy",
+  "weight_certificate",
+  "pbs_approval",
+  "service_record",
+  "photo",
+  "public_liability",
+  "workers_comp",
+  "nhvas",
+  "agreement",
+  "abn_certificate",
+  "weighbridge_ticket",
+  "tip_receipt",
+  "delivery_note",
+  "attachment",
+  "price_list",
+  "invoice_pdf",
+  "rcti_pdf",
+  "quote_pdf",
+  "statement_pdf",
+  "report_pdf",
+  "other",
+] as const;
+
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+
+// ── Document Entity Types (what the document belongs to) ──
+export const DOCUMENT_ENTITY_TYPES = [
+  "employee",
+  "asset",
+  "company",
+  "job",
+  "address",
+  "invoice",
+  "rcti",
+] as const;
+
+export type DocumentEntityType = (typeof DOCUMENT_ENTITY_TYPES)[number];
+
+// ── Storage Tiers ──
+export const STORAGE_TIERS = [
+  "hot",
+  "warm",
+  "cold",
+  "archive",
+] as const;
+
+export type StorageTier = (typeof STORAGE_TIERS)[number];
+
+// ── Document Access Methods ──
+export const DOCUMENT_ACCESS_METHODS = [
+  "direct",
+  "public_link",
+  "xero",
+  "api",
+  "portal",
+] as const;
+
+export type DocumentAccessMethod = (typeof DOCUMENT_ACCESS_METHODS)[number];
+
+// ══════════════════════════════════════════════════════════════════
+// ── Communications Constants (doc 13) ──
+// ══════════════════════════════════════════════════════════════════
+
+// ── Notification Channels ──
+export const NOTIFICATION_CHANNELS = [
+  "push",
+  "in_app",
+  "sms",
+  "email",
+] as const;
+
+export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+
+// ── Notification Categories ──
+export const NOTIFICATION_CATEGORIES = [
+  "scheduling",
+  "job_lifecycle",
+  "accounts",
+  "credit",
+  "compliance",
+  "system",
+] as const;
+
+export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
+
+// ── Email Queue Statuses ──
+export const EMAIL_STATUSES = [
+  "pending",
+  "queued",
+  "sent",
+  "delivered",
+  "failed",
+  "bounced",
+] as const;
+
+export type EmailStatus = (typeof EMAIL_STATUSES)[number];
+
+// ── SMS Statuses ──
+export const SMS_STATUSES = [
+  "pending",
+  "queued",
+  "sent",
+  "delivered",
+  "failed",
+] as const;
+
+export type SmsStatus = (typeof SMS_STATUSES)[number];
+
+// ── Notification Statuses ──
+export const NOTIFICATION_STATUSES = [
+  "unread",
+  "read",
+  "dismissed",
+] as const;
+
+export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];
+
+// ── Communication Types (events that trigger notifications) ──
+export const COMMUNICATION_TYPES = [
+  // Scheduling
+  "job_needs_allocation",
+  "job_requires_attention",
+  "duplicate_booking",
+  "contractor_unconfirmed",
+  "asset_maintenance_due",
+  // Job lifecycle
+  "job_status_changed",
+  "job_issue_reported",
+  "job_variation",
+  // Accounts
+  "job_ready_for_invoicing",
+  "docket_pending_verification",
+  "invoice_overdue",
+  "rcti_pending_approval",
+  "payment_received",
+  "supplier_invoice_received",
+  // Credit
+  "credit_warning",
+  "credit_limit_exceeded",
+  "credit_stop_applied",
+  "credit_stop_removed",
+  "over_limit_approval_requested",
+  // Compliance
+  "entity_approaching_noncompliance",
+  "entity_noncompliant",
+  // System
+  "system_announcement",
+  "integration_error",
+] as const;
+
+export type CommunicationType = (typeof COMMUNICATION_TYPES)[number];
+
+// ══════════════════════════════════════════════════════════════════
+// ── Xero Integration Constants (doc 11) ──
+// ══════════════════════════════════════════════════════════════════
+
+// ── Xero Connection Statuses ──
+export const XERO_CONNECTION_STATUSES = [
+  "connected",
+  "disconnected",
+  "expired",
+  "error",
+] as const;
+
+export type XeroConnectionStatus = (typeof XERO_CONNECTION_STATUSES)[number];
+
+// ── Xero Sync Resource Types ──
+export const XERO_SYNC_TYPES = [
+  "contact",
+  "invoice",
+  "bill",
+  "credit_note",
+  "payment",
+  "chart_of_accounts",
+  "tax_rates",
+  "tracking_categories",
+] as const;
+
+export type XeroSyncType = (typeof XERO_SYNC_TYPES)[number];
+
+// ── Xero Sync Directions ──
+export const XERO_SYNC_DIRECTIONS = [
+  "push",
+  "pull",
+] as const;
+
+export type XeroSyncDirection = (typeof XERO_SYNC_DIRECTIONS)[number];
+
+// ── Xero Sync Statuses ──
+export const XERO_SYNC_STATUSES = [
+  "pending",
+  "synced",
+  "failed",
+  "skipped",
+] as const;
+
+export type XeroSyncStatus = (typeof XERO_SYNC_STATUSES)[number];
+
+// ── Xero Tax Types (Australian standard) ──
+export const XERO_TAX_TYPES = [
+  "OUTPUT",
+  "INPUT",
+  "EXEMPTOUTPUT",
+  "EXEMPTINPUT",
+  "BASEXCLUDED",
+  "GSTONIMPORTS",
+] as const;
+
+export type XeroTaxType = (typeof XERO_TAX_TYPES)[number];
+
+// ── Xero Account Types ──
+export const XERO_ACCOUNT_TYPES = [
+  "REVENUE",
+  "DIRECTCOSTS",
+  "EXPENSE",
+  "OVERHEADS",
+  "CURRENT",
+  "FIXED",
+  "CURRLIAB",
+  "TERMLIAB",
+  "EQUITY",
+] as const;
+
+export type XeroAccountType = (typeof XERO_ACCOUNT_TYPES)[number];
+
+// ── Batch Billing Run Statuses ──
+export const BILLING_RUN_STATUSES = [
+  "pending",
+  "previewing",
+  "generating",
+  "generated",
+  "verifying",
+  "sending",
+  "completed",
+  "failed",
+] as const;
+
+export type BillingRunStatus = (typeof BILLING_RUN_STATUSES)[number];

@@ -69,6 +69,26 @@ import type {
   jobTypeDefaultsSchema,
   createJobAssignmentSchema,
   updateJobAssignmentSchema,
+  // Documents
+  uploadDocumentSchema,
+  updateDocumentSchema,
+  createPublicLinkSchema,
+  documentMetadataSchema,
+  // Communications
+  queueEmailSchema,
+  updateNotificationPreferencesSchema,
+  // Xero
+  xeroAccountMappingSchema,
+  xeroSyncSettingsSchema,
+  xeroSyncInvoicesSchema,
+  xeroSyncBillsSchema,
+  xeroLinkContactSchema,
+  xeroForceMatchSchema,
+  // Batch billing
+  createBillingRunSchema,
+  batchVerifyInvoicesSchema,
+  batchSendInvoicesSchema,
+  sendRemittanceSchema,
 } from "../schemas/index.js";
 
 // ── Base Types ──
@@ -201,6 +221,34 @@ export type UpdateJobPricingLineInput = z.infer<typeof updateJobPricingLineSchem
 
 export type CreateJobAssignmentInput = z.infer<typeof createJobAssignmentSchema>;
 export type UpdateJobAssignmentInput = z.infer<typeof updateJobAssignmentSchema>;
+
+// ── Document Types ──
+
+export type UploadDocumentInput = z.infer<typeof uploadDocumentSchema>;
+export type UpdateDocumentInput = z.infer<typeof updateDocumentSchema>;
+export type CreatePublicLinkInput = z.infer<typeof createPublicLinkSchema>;
+export type DocumentMetadata = z.infer<typeof documentMetadataSchema>;
+
+// ── Communication Types ──
+
+export type QueueEmailInput = z.infer<typeof queueEmailSchema>;
+export type UpdateNotificationPreferencesInput = z.infer<typeof updateNotificationPreferencesSchema>;
+
+// ── Xero Types ──
+
+export type XeroAccountMappingInput = z.infer<typeof xeroAccountMappingSchema>;
+export type XeroSyncSettingsInput = z.infer<typeof xeroSyncSettingsSchema>;
+export type XeroSyncInvoicesInput = z.infer<typeof xeroSyncInvoicesSchema>;
+export type XeroSyncBillsInput = z.infer<typeof xeroSyncBillsSchema>;
+export type XeroLinkContactInput = z.infer<typeof xeroLinkContactSchema>;
+export type XeroForceMatchInput = z.infer<typeof xeroForceMatchSchema>;
+
+// ── Batch Billing Types ──
+
+export type CreateBillingRunInput = z.infer<typeof createBillingRunSchema>;
+export type BatchVerifyInvoicesInput = z.infer<typeof batchVerifyInvoicesSchema>;
+export type BatchSendInvoicesInput = z.infer<typeof batchSendInvoicesSchema>;
+export type SendRemittanceInput = z.infer<typeof sendRemittanceSchema>;
 
 // ── Tenant Context (used by middleware) ──
 

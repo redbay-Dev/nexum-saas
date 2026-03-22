@@ -10,22 +10,16 @@ import { resolve } from "node:path";
 import postgres from "postgres";
 import { TEST_IDS, getTenantSeedSQL } from "./seed.js";
 
-// Database credentials from .env.development (same server, different DB)
-const DB_HOST = process.env.DATABASE_HOST ?? "192.168.50.154";
-const DB_PORT = Number(process.env.DATABASE_PORT ?? 5432);
-const DB_USER = process.env.DATABASE_USER ?? "devuser";
-const DB_PASSWORD = process.env.DATABASE_PASSWORD ?? "DevSecure2024!";
-const TEST_DB_NAME = "nexum_test";
+import { config } from "../config.js";
+
+const TEST_DB_NAME = config.database.name;
 
 function connectTo(dbName: string): ReturnType<typeof postgres> {
-  return postgres({
-    host: DB_HOST,
-    port: DB_PORT,
-    user: DB_USER,
-    password: DB_PASSWORD,
-    database: dbName,
-    max: 1,
-  });
+  const testUrl = config.database.url.replace(
+    `/${config.database.name}`,
+    `/${dbName}`,
+  );
+  return postgres(testUrl, { max: 1 });
 }
 
 async function createTestDatabase(): Promise<void> {
@@ -245,7 +239,4 @@ export async function setup(): Promise<void> {
   await seedTenantData();
 }
 
-export async function teardown(): Promise<void> {
-  // Keep the test database around for faster re-runs.
-  // Cleanup of mutable data happens per-test-file via cleanupJobs().
-}
+// Teardown moved to global-teardown.ts

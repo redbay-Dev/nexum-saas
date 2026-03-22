@@ -1228,3 +1228,31 @@ Every architectural, product, and workflow decision is recorded here with ration
 **Alternatives considered:** Per-file schema isolation (rejected — overengineered for current test count). In-memory database (rejected — project rule: no mocking, test against real PostgreSQL).
 
 ---
+
+### DEC-173: DO Spaces with human-readable S3 paths
+**Date:** 2026-03-22
+**Context:** Document storage needs to be accessible and debuggable. S3 paths could be UUID-based (opaque) or human-readable.
+**Decision:** S3 paths follow a human-readable folder structure: `/{tenant-slug}/{entity-type}/{entity-name}/{doc-type}/{filename}`. File names are auto-standardised to `{Entity}_{DocType}_{Date}_{Seq}.{ext}`.
+**Rationale:** Operators navigating the bucket directly (via DO Spaces console) should be able to find files intuitively. This mirrors how a person would organise files on a shared drive. Per doc 15 spec.
+**Alternatives considered:** UUID-based paths (rejected — opaque, unhelpful for debugging). Hash-based paths (rejected — even worse for discoverability).
+
+### DEC-174: AES-256-GCM for Xero token encryption
+**Date:** 2026-03-22
+**Context:** Xero OAuth tokens must be stored encrypted per tenant. Need a symmetric encryption scheme.
+**Decision:** Use AES-256-GCM with random IVs. Auth tag length explicitly set to 16 bytes. Tokens stored as `iv:authTag:ciphertext` in hex.
+**Rationale:** GCM provides authenticated encryption, preventing both tampering and forgery. 16-byte auth tag is the recommended length per NIST. Random IVs ensure each encryption produces unique ciphertext.
+**Alternatives considered:** AES-CBC (rejected — no authentication). External KMS (rejected — adds latency and cost for a single key).
+
+### DEC-175: Queue-based email with staggered delivery
+**Date:** 2026-03-22
+**Context:** Batch sending invoices/remittances to 50+ recipients simultaneously risks rate limiting from email providers.
+**Decision:** All emails go through an `email_queue` table with configurable stagger delay between sends. Processing is triggered manually (admin endpoint) or will be automated via BullMQ worker in future.
+**Rationale:** Queue-based sending with retry logic prevents rate limit issues and provides delivery tracking. The stagger delay is configurable per-tenant (RCTI settings) for fine control.
+**Alternatives considered:** Direct sending (rejected — no retry, no stagger). BullMQ only (deferred — adds Redis dependency complexity for now, will add in future).
+
+### DEC-176: Handlebars + Puppeteer for PDF generation
+**Date:** 2026-03-22
+**Context:** Need to generate branded invoice, RCTI, and remittance PDFs.
+**Decision:** Use Handlebars templates compiled server-side, rendered to HTML, then converted to PDF via Puppeteer. Templates are hardcoded in the service for now; tenant template customisation is planned.
+**Rationale:** Matches SafeSpec's approach. Handlebars prevents injection (logic-less templates). Puppeteer renders pixel-perfect PDFs with CSS support. Draft watermarks applied via CSS overlay.
+**Alternatives considered:** Direct PDF libraries like jsPDF (rejected — poor CSS support). Cloud PDF services (rejected — data residency concerns for Australian financial documents).

@@ -83,6 +83,14 @@ export const PERMISSIONS = [
   // Documents
   "manage:documents",
   "view:documents",
+  "upload:documents",
+  "download:documents",
+  "share:documents",
+  "admin:documents",
+
+  // Notifications
+  "manage:notifications",
+  "view:notifications",
 
   // Reports
   "manage:reports",
@@ -138,6 +146,9 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "view:dockets",
     "view:pricing",
     "view:documents",
+    "upload:documents",
+    "download:documents",
+    "view:notifications",
     "manage:sms",
     "view:sms",
     "use:ai",
@@ -168,6 +179,10 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "manage:xero",
     "view:xero",
     "view:documents",
+    "upload:documents",
+    "download:documents",
+    "share:documents",
+    "view:notifications",
     "manage:reports",
     "view:reports",
     "view:audit_log",
@@ -182,6 +197,10 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "view:compliance",
     "manage:documents",
     "view:documents",
+    "upload:documents",
+    "download:documents",
+    "share:documents",
+    "view:notifications",
     "manage:reports",
     "view:reports",
   ],
