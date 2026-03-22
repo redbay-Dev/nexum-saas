@@ -59,6 +59,8 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   disabled?: boolean;
+  /** If set, this nav item is only visible when the module is enabled. */
+  module?: string;
 }
 
 const CORE_NAV: NavItem[] = [
@@ -68,7 +70,7 @@ const CORE_NAV: NavItem[] = [
 const OPERATIONS_NAV: NavItem[] = [
   { to: "/scheduling", label: "Scheduling", icon: CalendarClock },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
-  { to: "/daysheets", label: "Daysheets", icon: ClipboardList },
+  { to: "/daysheets", label: "Daysheets", icon: ClipboardList, module: "docket_processing" },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/companies", label: "Companies", icon: Building2 },
   { to: "/contacts", label: "Contacts", icon: UserRound },
@@ -76,23 +78,23 @@ const OPERATIONS_NAV: NavItem[] = [
   { to: "/regions", label: "Regions", icon: Globe },
   { to: "/employees", label: "Drivers & Staff", icon: Users },
   { to: "/assets", label: "Assets", icon: Truck },
-  { to: "/materials", label: "Materials", icon: Package },
+  { to: "/materials", label: "Materials", icon: Package, module: "materials" },
   { to: "/documents", label: "Documents", icon: FileText },
 ];
 
 const FINANCE_NAV: NavItem[] = [
-  { to: "/ar-approvals", label: "AR Approvals", icon: CheckSquare },
-  { to: "/invoices", label: "Invoices", icon: FileText },
-  { to: "/rctis", label: "RCTIs", icon: Receipt },
-  { to: "/credit", label: "Credit", icon: CreditCard },
-  { to: "/billing-runs", label: "Billing Runs", icon: Wallet },
+  { to: "/ar-approvals", label: "AR Approvals", icon: CheckSquare, module: "invoicing" },
+  { to: "/invoices", label: "Invoices", icon: FileText, module: "invoicing" },
+  { to: "/rctis", label: "RCTIs", icon: Receipt, module: "rcti" },
+  { to: "/credit", label: "Credit", icon: CreditCard, module: "invoicing" },
+  { to: "/billing-runs", label: "Billing Runs", icon: Wallet, module: "invoicing" },
 ];
 
 const SETTINGS_NAV: NavItem[] = [
   { to: "/settings/organisation", label: "Organisation", icon: Building2 },
   { to: "/settings/users", label: "Users", icon: Users },
   { to: "/settings/job-types", label: "Job Types", icon: SlidersHorizontal },
-  { to: "/settings/xero", label: "Xero", icon: Link2 },
+  { to: "/settings/xero", label: "Xero", icon: Link2, module: "xero" },
   { to: "/settings/notifications", label: "Notifications", icon: Bell },
 ];
 
@@ -136,13 +138,19 @@ function getInitials(email: string): string {
   return (email.split("@")[0] ?? "").slice(0, 2).toUpperCase();
 }
 
-function NavSection({ label, items }: { label: string; items: NavItem[] }): React.JSX.Element {
+function NavSection({ label, items, enabledModules }: { label: string; items: NavItem[]; enabledModules: string[] }): React.JSX.Element {
+  const visibleItems = items.filter(
+    (item) => !item.module || enabledModules.includes(item.module),
+  );
+
+  if (visibleItems.length === 0) return <></>;
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <SidebarMenuItem key={item.to}>
               {item.disabled ? (
                 <SidebarMenuButton disabled>
@@ -172,6 +180,7 @@ function NavSection({ label, items }: { label: string; items: NavItem[] }): Reac
 export function AppShell(): React.JSX.Element {
   const { auth } = useAuth();
   const location = useLocation();
+  const modules = auth?.enabledModules ?? [];
 
   const pageTitle =
     BREADCRUMB_MAP[location.pathname] ??
@@ -222,10 +231,10 @@ export function AppShell(): React.JSX.Element {
         </SidebarHeader>
 
         <SidebarContent>
-          <NavSection label="Overview" items={CORE_NAV} />
-          <NavSection label="Operations" items={OPERATIONS_NAV} />
-          <NavSection label="Finance" items={FINANCE_NAV} />
-          <NavSection label="Settings" items={SETTINGS_NAV} />
+          <NavSection label="Overview" items={CORE_NAV} enabledModules={modules} />
+          <NavSection label="Operations" items={OPERATIONS_NAV} enabledModules={modules} />
+          <NavSection label="Finance" items={FINANCE_NAV} enabledModules={modules} />
+          <NavSection label="Settings" items={SETTINGS_NAV} enabledModules={modules} />
         </SidebarContent>
 
         <SidebarFooter className="p-3">

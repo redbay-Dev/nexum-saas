@@ -165,6 +165,9 @@ export async function regionRoutes(app: FastifyInstance): Promise<void> {
           id,
           name: input.name,
           description: input.description,
+          boundary: input.boundary ?? null,
+          defaultAssetIds: input.defaultAssetIds ?? [],
+          defaultDriverIds: input.defaultDriverIds ?? [],
         })
         .returning();
 
@@ -226,6 +229,9 @@ export async function regionRoutes(app: FastifyInstance): Promise<void> {
 
       if (input.name !== undefined) updateValues.name = input.name;
       if (input.description !== undefined) updateValues.description = input.description;
+      if (input.boundary !== undefined) updateValues.boundary = input.boundary;
+      if (input.defaultAssetIds !== undefined) updateValues.defaultAssetIds = input.defaultAssetIds;
+      if (input.defaultDriverIds !== undefined) updateValues.defaultDriverIds = input.defaultDriverIds;
 
       const [updated] = await ctx.tenantDb
         .update(regions)

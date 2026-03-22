@@ -17,7 +17,6 @@ export interface OpShieldSession {
   tenantMemberships: Array<{
     tenantId: string;
     role: string;
-    products: string[];
   }>;
 }
 
@@ -62,9 +61,8 @@ export async function getSession(
       email: payload.email,
       name: payload.name,
       tenantMemberships: payload.tenant_memberships.map((m) => ({
-        tenantId: m.tenant_id,
+        tenantId: m.tenantId,
         role: m.role,
-        products: m.products,
       })),
     };
   } catch {

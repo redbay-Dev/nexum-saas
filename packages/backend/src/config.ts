@@ -40,7 +40,7 @@ export const config = {
       process.env.OPSHIELD_LOGIN_URL ?? "http://localhost:3000/login",
     webhookSecret: process.env.OPSHIELD_WEBHOOK_SECRET ?? "dev-webhook-secret",
     apiKey: process.env.OPSHIELD_API_KEY ?? "dev-api-key",
-    productAudience: process.env.PRODUCT_AUDIENCE ?? "nexum",
+    productAudience: process.env.PRODUCT_AUDIENCE ?? "redbay-platform",
   },
   smtp: {
     host: process.env.SMTP_HOST ?? "localhost",

@@ -9,6 +9,7 @@ export interface AuthInfo {
   role: UserRole;
   isOwner: boolean;
   permissions: readonly Permission[];
+  enabledModules: string[];
 }
 
 export interface AuthContextValue {

@@ -10,13 +10,15 @@ loadEnv({ path: resolve(import.meta.dirname, "../../../..", ".env.development") 
 
 import { migrateTenantSchema } from "./provision-tenant.js";
 
-const schemaName = process.argv[2];
+const schemaNameArg = process.argv[2];
 
-if (!schemaName) {
+if (!schemaNameArg) {
   console.error("Usage: pnpm db:migrate:tenant -- <schema_name>");
   console.error("Example: pnpm db:migrate:tenant -- tenant_abc123def456");
   process.exit(1);
 }
+
+const schemaName: string = schemaNameArg;
 
 async function run(): Promise<void> {
   console.log(`Migrating tenant schema: ${schemaName}\n`);

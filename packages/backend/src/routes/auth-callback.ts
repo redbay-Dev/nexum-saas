@@ -47,9 +47,10 @@ export async function authCallbackRoutes(app: FastifyInstance): Promise<void> {
             .join("; "),
         );
 
-        return reply.redirect(config.frontendUrl);
+        return reply.redirect(`${config.frontendUrl}/dashboard`);
       } catch (err) {
-        request.log.warn({ err }, "Invalid OpShield callback token");
+        const errMsg = err instanceof Error ? err.message : String(err);
+        request.log.error({ err: errMsg, code: (err as { code?: string }).code }, "Invalid OpShield callback token");
         return reply.redirect(
           `${config.frontendUrl}/auth-error?error=invalid_token`,
         );

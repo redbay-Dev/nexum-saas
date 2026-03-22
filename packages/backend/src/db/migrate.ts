@@ -16,11 +16,12 @@ import postgres from "postgres";
 import { migrateAllTenants } from "./provision-tenant.js";
 import { reportMigrationState } from "./migration-reporter.js";
 
-const DATABASE_URL = process.env["DATABASE_URL"];
-if (!DATABASE_URL) {
+const DATABASE_URL_ENV = process.env["DATABASE_URL"];
+if (!DATABASE_URL_ENV) {
   console.error("DATABASE_URL not set");
   process.exit(1);
 }
+const DATABASE_URL: string = DATABASE_URL_ENV;
 
 async function run(): Promise<void> {
   console.log("=== Nexum Database Migration ===\n");

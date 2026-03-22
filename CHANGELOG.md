@@ -2,6 +2,80 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.20.0] — 2026-03-23
+
+### Doc 01 Completion & Honest Project Audit
+
+**What was built:**
+
+Complete Doc 01 (Core Identity & Multi-tenancy) — closed all four remaining gaps identified during a full spec-vs-code audit.
+
+**Gap fixes (4):**
+
+1. **Entry point media** — Added `media` JSONB column to `entry_points` table for photos, maps, and diagrams that drivers need for site reference. Updated Zod schema with `entryPointMediaSchema` (url, type, caption). Route handlers accept media in create/update operations.
+
+2. **Region default resources** — Added `defaultAssetIds` and `defaultDriverIds` JSONB arrays to `regions` table so schedulers can see which assets/drivers are assigned to a region by default. Updated Zod schema with `boundary`, `defaultAssetIds`, `defaultDriverIds` fields. Route handlers persist all three new fields.
+
+3. **Module-aware navigation** — Added `enabledModules` to `/api/v1/auth/me` response (fetched from OpShield entitlements cache). Added `enabledModules` to frontend `AuthInfo` type. Tagged nav items with `module` property (e.g., invoicing, rcti, xero, docket_processing, materials). `NavSection` component now filters items by enabled modules — disabled modules are hidden from navigation.
+
+4. **Company role-specific tabs** — Rewrote company detail page with Tabs component. "Profile" tab contains the edit form. "As Customer" tab shows recent jobs, recent invoices, and credit status link. "As Contractor" tab shows recent RCTIs. "As Supplier" tab shows materials link. Tabs are conditional based on active company roles.
+
+**Auth infrastructure improvements:**
+- Auto-provision tenant_users from JWT claims when user first accesses Nexum (OpShield is source of truth)
+- Removed `products` field from JWT session shape (module checking handled by entitlements middleware, not JWT)
+- Fixed productAudience default to match OpShield configuration
+- Fixed pre-existing type errors in `migrate-tenant.ts` and `migrate.ts` (string | undefined narrowing)
+
+**Migration:**
+- `0017_doc01_completion.sql` — Adds `media` to entry_points, `default_asset_ids` and `default_driver_ids` to regions
+
+**All checks pass:**
+- `pnpm lint` — zero errors (19 warnings, all pre-existing console.log in migration scripts)
+- `pnpm type-check` — zero errors across all packages
+- Unit tests — 320 passing
+- `pnpm build` — all packages build
+
+**What was audited this session:**
+- Full spec-vs-code audit of Doc 01 (Core Identity) — found and fixed 4 gaps, now 100% complete
+- Full spec-vs-code audit of Doc 02 (Business Entities) — found ~65% missing (see below)
+
+**What's STILL MISSING (Doc 02 — Business Entities, next priority):**
+
+*Customers:*
+- Credit hold status (only hard stop exists, no temporary hold)
+- Configurable credit term types (only numeric days, not EOM/NET options)
+- Invoice preferences: delivery method, format, billing contact, PO requirements
+- Credits on account ledger (no explicit overpayment/dispute/goodwill tracking)
+- Credit status visibility in job creation UI and company list badges
+- Customer sites on map
+- Rate card link in customer tab
+
+*Contractors:*
+- Insurance tracking schema (PL, vehicle, workers comp with expiry)
+- Compliance status flag (not visible in scheduling, job assignment, lists)
+- Self-service portal (document upload, approval workflow, version history)
+- Expiry alerts to both parties
+- Account items (charges for parking/fuel/admin, configurable charge types)
+- Account statements
+- RCTI bank account fields
+- NHVAS accreditation tracking
+
+*Suppliers:*
+- Volume-based pricing tiers
+- Site-specific pricing overrides
+- Delivery terms
+
+*Onboarding (entirely missing):*
+- ABN/ABR API integration (search by name, search by ABN, auto-populate)
+- Customer onboarding checklist (6 steps)
+- Contractor onboarding checklist (16 steps)
+- Digital onboarding packs (PDF pre-fill, e-signatures, portal forms)
+- Policy acknowledgement tracking
+- Onboarding status lifecycle (incomplete → complete → requires attention)
+
+*Company Status:*
+- Archive warnings for outstanding invoices/incomplete jobs
+
 ## [0.19.0] — 2026-03-22
 
 ### Documents, Communications, Xero Integration & Batch Billing

@@ -167,6 +167,7 @@ export async function entryPointRoutes(app: FastifyInstance): Promise<void> {
           weightLimit: input.weightLimit?.toString(),
           operatingHours: input.operatingHours,
           driverInstructions: input.driverInstructions,
+          media: input.media ?? null,
           status: input.status,
         })
         .returning();
@@ -251,6 +252,7 @@ export async function entryPointRoutes(app: FastifyInstance): Promise<void> {
       if (input.weightLimit !== undefined) updateValues.weightLimit = input.weightLimit?.toString();
       if (input.operatingHours !== undefined) updateValues.operatingHours = input.operatingHours;
       if (input.driverInstructions !== undefined) updateValues.driverInstructions = input.driverInstructions;
+      if (input.media !== undefined) updateValues.media = input.media;
       if (input.status !== undefined) updateValues.status = input.status;
 
       const [updated] = await ctx.tenantDb

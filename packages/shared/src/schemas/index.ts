@@ -249,6 +249,12 @@ export const updateAddressSchema = createAddressSchema.partial();
 
 export const entryPointStatusSchema = z.enum(ENTRY_POINT_STATUSES);
 
+export const entryPointMediaSchema = z.object({
+  url: z.string().min(1),
+  type: z.string().min(1).max(50),
+  caption: z.string().max(255).nullable(),
+});
+
 export const createEntryPointSchema = z.object({
   addressId: z.uuid(),
   name: z.string().min(1).max(255),
@@ -259,6 +265,7 @@ export const createEntryPointSchema = z.object({
   weightLimit: z.number().positive().optional(),
   operatingHours: z.string().optional(),
   driverInstructions: z.string().optional(),
+  media: z.array(entryPointMediaSchema).optional(),
   status: entryPointStatusSchema.default("active"),
 });
 
@@ -269,6 +276,9 @@ export const updateEntryPointSchema = createEntryPointSchema.partial();
 export const createRegionSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
+  boundary: z.record(z.string(), z.unknown()).optional(),
+  defaultAssetIds: z.array(z.uuid()).optional(),
+  defaultDriverIds: z.array(z.uuid()).optional(),
 });
 
 export const updateRegionSchema = createRegionSchema.partial();

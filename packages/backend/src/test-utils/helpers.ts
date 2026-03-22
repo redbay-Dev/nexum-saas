@@ -30,7 +30,6 @@ const ROLE_SESSIONS: Record<string, OpShieldSession> = {
     tenantMemberships: [{
       tenantId: TEST_IDS.tenant,
       role: "owner",
-      products: ["nexum"],
     }],
   },
   admin: {
@@ -40,7 +39,6 @@ const ROLE_SESSIONS: Record<string, OpShieldSession> = {
     tenantMemberships: [{
       tenantId: TEST_IDS.tenant,
       role: "admin",
-      products: ["nexum"],
     }],
   },
   dispatcher: {
@@ -50,7 +48,6 @@ const ROLE_SESSIONS: Record<string, OpShieldSession> = {
     tenantMemberships: [{
       tenantId: TEST_IDS.tenant,
       role: "dispatcher",
-      products: ["nexum"],
     }],
   },
   finance: {
@@ -60,7 +57,6 @@ const ROLE_SESSIONS: Record<string, OpShieldSession> = {
     tenantMemberships: [{
       tenantId: TEST_IDS.tenant,
       role: "finance",
-      products: ["nexum"],
     }],
   },
   compliance: {
@@ -70,7 +66,6 @@ const ROLE_SESSIONS: Record<string, OpShieldSession> = {
     tenantMemberships: [{
       tenantId: TEST_IDS.tenant,
       role: "compliance",
-      products: ["nexum"],
     }],
   },
   read_only: {
@@ -80,7 +75,6 @@ const ROLE_SESSIONS: Record<string, OpShieldSession> = {
     tenantMemberships: [{
       tenantId: TEST_IDS.tenant,
       role: "read_only",
-      products: ["nexum"],
     }],
   },
 };

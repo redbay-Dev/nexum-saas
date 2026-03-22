@@ -1256,3 +1256,24 @@ Every architectural, product, and workflow decision is recorded here with ration
 **Decision:** Use Handlebars templates compiled server-side, rendered to HTML, then converted to PDF via Puppeteer. Templates are hardcoded in the service for now; tenant template customisation is planned.
 **Rationale:** Matches SafeSpec's approach. Handlebars prevents injection (logic-less templates). Puppeteer renders pixel-perfect PDFs with CSS support. Draft watermarks applied via CSS overlay.
 **Alternatives considered:** Direct PDF libraries like jsPDF (rejected — poor CSS support). Cloud PDF services (rejected — data residency concerns for Australian financial documents).
+
+### DEC-178: Complete each doc fully before moving to the next
+**Date:** 2026-03-23
+**Context:** Previous sessions built thin CRUD slices across 13 feature areas, deferring business logic and calling it "Phase 2" — creating massive gaps and violating the FINISH WHAT YOU START rule.
+**Decision:** Every spec document must be fully implemented (every bullet point) before moving to the next document. No "deferred" lists, no "Phase 2" shortcuts. If context runs out, document exactly what remains so the next session finishes it.
+**Rationale:** The build-order in the docs exists for a reason — downstream features depend on upstream completeness. Thin slices across many areas creates the illusion of progress while leaving nothing production-ready.
+**Alternatives considered:** Continue breadth-first (rejected — creates unmaintainable debt and violates project rules).
+
+### DEC-179: Module-aware navigation via entitlements in auth/me response
+**Date:** 2026-03-23
+**Context:** Frontend navigation was static — all nav items visible regardless of which modules a tenant has enabled.
+**Decision:** Include `enabledModules` array in the `/api/v1/auth/me` response (fetched from the existing OpShield entitlements cache). Frontend nav items tagged with `module` property and filtered before rendering.
+**Rationale:** Doc 01 requires "What navigation items appear" based on enabled modules. The entitlements are already cached in Redis (15min TTL) from the module middleware, so there's no extra API call.
+**Alternatives considered:** Separate `/api/v1/modules` endpoint (rejected — unnecessary extra request on every page load).
+
+### DEC-180: Auto-provision tenant_users from OpShield JWT
+**Date:** 2026-03-23
+**Context:** Users provisioned by OpShield needed manual mapping in Nexum's `tenant_users` table. If a user existed in OpShield but not in Nexum's local table, authentication failed.
+**Decision:** When the JWT contains valid `tenant_memberships` but no local `tenant_users` record exists, auto-create the mapping. OpShield is the source of truth for tenant membership.
+**Rationale:** Eliminates a common failure mode during tenant provisioning. The JWT is cryptographically signed by OpShield, so the membership claim is trustworthy.
+**Alternatives considered:** Require explicit provisioning webhook (rejected — adds fragility; the JWT already contains the information).

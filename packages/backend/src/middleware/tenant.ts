@@ -22,7 +22,8 @@ export interface TenantContext {
  *
  * 1. Validates the OpShield JWT (via getSession)
  * 2. Looks up the user's tenant membership in Nexum's tenant_users table
- * 3. Creates a tenant-scoped Drizzle client
+ * 3. If not found, auto-provisions from JWT tenant_memberships (OpShield is source of truth)
+ * 4. Creates a tenant-scoped Drizzle client
  *
  * Returns null if unauthenticated or not a member of any tenant.
  */
@@ -33,11 +34,45 @@ export async function getTenantContext(
   if (!session) return null;
 
   // Look up user's tenant membership using their OpShield user ID
-  const [membership] = await db
+  let [membership] = await db
     .select()
     .from(tenantUsers)
     .where(eq(tenantUsers.userId, session.userId))
     .limit(1);
+
+  // If no local membership exists but the JWT has tenant_memberships,
+  // auto-create the user mapping. The JWT is signed by OpShield (source
+  // of truth for tenant membership), so this is safe and handles cases
+  // where provisioning didn't create the user entry.
+  if (!membership && session.tenantMemberships.length > 0) {
+    for (const jwtMembership of session.tenantMemberships) {
+      const [matchingTenant] = await db
+        .select({ id: tenants.id })
+        .from(tenants)
+        .where(eq(tenants.opshieldTenantId, jwtMembership.tenantId))
+        .limit(1);
+
+      if (matchingTenant) {
+        await db.insert(tenantUsers).values({
+          userId: session.userId,
+          tenantId: matchingTenant.id,
+          role: jwtMembership.role === "owner" ? "owner" : jwtMembership.role,
+          isOwner: jwtMembership.role === "owner",
+          email: session.email,
+          displayName: session.name,
+        }).onConflictDoNothing();
+
+        // Re-fetch the membership we just created
+        [membership] = await db
+          .select()
+          .from(tenantUsers)
+          .where(eq(tenantUsers.userId, session.userId))
+          .limit(1);
+
+        break;
+      }
+    }
+  }
 
   if (!membership) return null;
 

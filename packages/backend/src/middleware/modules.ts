@@ -25,7 +25,7 @@ function entitlementsCacheKey(tenantId: string): string {
  * Fetch entitlements for a tenant. Tries Redis cache first, then
  * OpShield API, falls back to the local tenants table.
  */
-async function getEntitlements(
+export async function getEntitlements(
   tenantId: string,
   opshieldTenantId: string | null,
 ): Promise<TenantEntitlements> {

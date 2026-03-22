@@ -16,9 +16,8 @@ export interface OpShieldTokenPayload extends JWTPayload {
 }
 
 export interface TenantMembership {
-  tenant_id: string;
+  tenantId: string;
   role: string;
-  products: string[];
 }
 
 /**
