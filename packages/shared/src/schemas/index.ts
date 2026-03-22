@@ -57,6 +57,17 @@ import {
   MARGIN_THRESHOLD_LEVELS,
   PRICE_CHANGE_SOURCES,
   QUOTE_PRICING_MODES,
+  INVOICE_SCHEDULING_FREQUENCIES,
+  INVOICE_GROUPING_MODES,
+  RCTI_PAYMENT_FREQUENCIES,
+  RCTI_LINE_TYPES,
+  DEDUCTION_CATEGORIES,
+  PAYMENT_METHODS,
+  SEQUENCE_TYPES,
+  AR_APPROVAL_STATUSES,
+  DISPUTE_STATUSES,
+  DISPUTE_RESOLUTION_TYPES,
+  CREDIT_TRANSACTION_TYPES,
 } from "../constants/index.js";
 
 // ── Base Entity Fields ──
@@ -523,13 +534,187 @@ export const updateJobAssignmentSchema = z.object({
   notes: z.string().max(1000).optional(),
 });
 
-// ── Invoice Schemas ──
+// ══════════════════════════════════════════════════════════════════
+// ── Invoicing & RCTI Schemas (doc 10) ──
+// ══════════════════════════════════════════════════════════════════
+
+// ── Enum Schemas ──
 
 export const invoiceStatusSchema = z.enum(INVOICE_STATUSES);
-
-// ── RCTI Schemas ──
-
 export const rctiStatusSchema = z.enum(RCTI_STATUSES);
+export const invoiceSchedulingFrequencySchema = z.enum(INVOICE_SCHEDULING_FREQUENCIES);
+export const invoiceGroupingModeSchema = z.enum(INVOICE_GROUPING_MODES);
+export const rctiPaymentFrequencySchema = z.enum(RCTI_PAYMENT_FREQUENCIES);
+export const rctiLineTypeSchema = z.enum(RCTI_LINE_TYPES);
+export const deductionCategorySchema = z.enum(DEDUCTION_CATEGORIES);
+export const paymentMethodSchema = z.enum(PAYMENT_METHODS);
+export const sequenceTypeSchema = z.enum(SEQUENCE_TYPES);
+export const arApprovalStatusSchema = z.enum(AR_APPROVAL_STATUSES);
+export const disputeStatusSchema = z.enum(DISPUTE_STATUSES);
+export const disputeResolutionTypeSchema = z.enum(DISPUTE_RESOLUTION_TYPES);
+export const creditTransactionTypeSchema = z.enum(CREDIT_TRANSACTION_TYPES);
+
+// ── Invoice Sequence Schemas ──
+
+export const updateInvoiceSequenceSchema = z.object({
+  prefix: z.string().max(20).optional(),
+  suffix: z.string().max(20).optional(),
+  nextNumber: z.number().int().min(1).optional(),
+  minDigits: z.number().int().min(1).max(10).optional(),
+});
+
+// ── Customer Invoice Settings Schemas ──
+
+export const customerInvoiceSettingsSchema = z.object({
+  invoiceSchedule: invoiceSchedulingFrequencySchema.default("on_completion"),
+  invoiceGrouping: invoiceGroupingModeSchema.default("per_job"),
+  scheduleDayOfWeek: z.number().int().min(0).max(6).optional(),
+  scheduleDayOfMonth: z.number().int().min(1).max(28).optional(),
+  paymentTermsDays: z.number().int().min(0).max(365).default(30),
+  creditLimit: z.number().min(0).nullable().optional(),
+  creditWarningPercent: z.number().int().min(0).max(100).default(80),
+  creditStop: z.boolean().default(false),
+  creditStopReason: z.string().max(500).optional(),
+});
+
+export const updateCustomerInvoiceSettingsSchema = customerInvoiceSettingsSchema.partial();
+
+// ── Contractor Payment Settings Schemas ──
+
+export const contractorPaymentSettingsSchema = z.object({
+  paymentFrequency: rctiPaymentFrequencySchema.default("weekly"),
+  paymentDay1: z.number().int().min(1).max(28).optional(),
+  paymentDay2: z.number().int().min(1).max(28).optional(),
+  cutoffTime: z.string().max(5).default("17:00"),
+  paymentTermsDays: z.number().int().min(0).max(365).default(7),
+  gstInclusive: z.boolean().default(false),
+  requireApproval: z.boolean().default(true),
+});
+
+export const updateContractorPaymentSettingsSchema = contractorPaymentSettingsSchema.partial();
+
+// ── Invoice CRUD Schemas ──
+
+/** Create an invoice from approved charges. */
+export const createInvoiceSchema = z.object({
+  customerId: z.uuid(),
+  chargeIds: z.array(z.uuid()).min(1).max(500),
+  issueDate: z.string(),
+  dueDate: z.string().optional(),
+  groupingMode: invoiceGroupingModeSchema.optional(),
+  projectId: z.uuid().optional(),
+  poNumber: z.string().max(100).optional(),
+  notes: z.string().max(2000).optional(),
+  internalNotes: z.string().max(2000).optional(),
+});
+
+export const updateInvoiceSchema = z.object({
+  issueDate: z.string().optional(),
+  dueDate: z.string().optional(),
+  notes: z.string().max(2000).optional(),
+  internalNotes: z.string().max(2000).optional(),
+});
+
+/** Transition an invoice's status. */
+export const invoiceStatusTransitionSchema = z.object({
+  status: invoiceStatusSchema,
+  reason: z.string().max(500).optional(),
+});
+
+/** Verify an invoice (finance review). */
+export const verifyInvoiceSchema = z.object({
+  notes: z.string().max(2000).optional(),
+});
+
+/** Reject an invoice back to operations. */
+export const rejectInvoiceSchema = z.object({
+  reason: z.string().min(1).max(500),
+});
+
+// ── Invoice Line Item Schema ──
+
+export const createInvoiceLineItemSchema = z.object({
+  description: z.string().max(500),
+  quantity: z.number(),
+  unitOfMeasure: z.string().max(20).optional(),
+  unitPrice: z.number(),
+  lineTotal: z.number(),
+  accountCode: z.string().max(20).optional(),
+});
+
+// ── AR Approval Schemas ──
+
+export const arApprovalDecisionSchema = z.object({
+  decision: z.enum(["approved", "rejected"] as const),
+  notes: z.string().max(500).optional(),
+});
+
+export const batchArApprovalSchema = z.object({
+  jobIds: z.array(z.uuid()).min(1).max(100),
+});
+
+// ── RCTI CRUD Schemas ──
+
+/** Generate an RCTI for a contractor and period. */
+export const generateRctiSchema = z.object({
+  contractorId: z.uuid(),
+  periodStart: z.string(),
+  periodEnd: z.string(),
+});
+
+/** Batch generate RCTIs for all contractors in a period. */
+export const batchGenerateRctisSchema = z.object({
+  periodStart: z.string(),
+  periodEnd: z.string(),
+});
+
+export const updateRctiSchema = z.object({
+  notes: z.string().max(2000).optional(),
+  internalNotes: z.string().max(2000).optional(),
+});
+
+/** Transition an RCTI's status. */
+export const rctiStatusTransitionSchema = z.object({
+  status: rctiStatusSchema,
+  reason: z.string().max(500).optional(),
+});
+
+/** Approve an RCTI. */
+export const approveRctiSchema = z.object({
+  notes: z.string().max(2000).optional(),
+});
+
+// ── RCTI Deduction Schema ──
+
+export const createRctiDeductionSchema = z.object({
+  deductionCategory: deductionCategorySchema,
+  description: z.string().min(1).max(500),
+  amount: z.number().min(0),
+  details: z.string().max(1000).optional(),
+});
+
+export const updateRctiDeductionSchema = createRctiDeductionSchema.partial();
+
+// ── Payment Schema ──
+
+export const createPaymentSchema = z.object({
+  paymentDate: z.string(),
+  amount: z.number().min(0.01),
+  paymentMethod: paymentMethodSchema,
+  referenceNumber: z.string().max(100).optional(),
+  notes: z.string().max(1000).optional(),
+});
+
+// ── Credit Schemas ──
+
+export const creditCheckSchema = z.object({
+  companyId: z.uuid(),
+  amount: z.number().min(0),
+});
+
+export const creditStopSchema = z.object({
+  reason: z.string().min(1).max(500),
+});
 
 // ── Daysheet Schemas ──
 
@@ -993,6 +1178,20 @@ export const updateOrganisationSchema = z.object({
   timezone: z.string().optional(),
   quotePricingMode: quotePricingModeSchema.optional(),
   staleRateThresholdDays: z.number().int().min(1).max(730).optional(),
+  // RCTI configuration (doc 10)
+  rctiPaymentFrequency: rctiPaymentFrequencySchema.optional(),
+  rctiPaymentDay1: z.number().int().min(1).max(28).optional(),
+  rctiPaymentDay2: z.number().int().min(1).max(28).optional(),
+  rctiCutoffTime: z.string().max(5).optional(),
+  rctiPaymentTermsDays: z.number().int().min(0).max(365).optional(),
+  rctiAutoGenerate: z.boolean().optional(),
+  rctiRequireApproval: z.boolean().optional(),
+  rctiGstInclusive: z.boolean().optional(),
+  rctiAutoEmailOnApproval: z.boolean().optional(),
+  rctiIncludeDocketImages: z.boolean().optional(),
+  rctiEmailStaggerSeconds: z.number().int().min(0).max(300).optional(),
+  rctiSubjectTemplate: z.string().max(500).optional(),
+  rctiBodyTemplate: z.string().max(5000).optional(),
 });
 
 // ── User Management Schemas ──

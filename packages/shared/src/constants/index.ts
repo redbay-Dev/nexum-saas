@@ -152,28 +152,139 @@ export const PROJECT_STATUSES = [
 
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
-// ── Invoice States ──
+// ── Invoice States (doc 10: Draft → Verified → Sent → Paid) ──
 export const INVOICE_STATUSES = [
   "draft",
+  "verified",
   "sent",
   "partially_paid",
   "paid",
   "overdue",
-  "void",
+  "rejected",
+  "cancelled",
 ] as const;
 
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 
-// ── RCTI States ──
+// ── RCTI States (doc 10: Draft → Accumulating → Ready → Pending Approval → Approved → Sent → Paid) ──
 export const RCTI_STATUSES = [
-  "pending",
+  "draft",
+  "accumulating",
+  "ready",
+  "pending_approval",
   "approved",
   "sent",
+  "partially_paid",
   "paid",
-  "void",
+  "cancelled",
+  "disputed",
 ] as const;
 
 export type RctiStatus = (typeof RCTI_STATUSES)[number];
+
+// ── Invoice Scheduling Frequencies (per-customer) ──
+export const INVOICE_SCHEDULING_FREQUENCIES = [
+  "on_completion",
+  "daily",
+  "weekly",
+  "fortnightly",
+  "monthly",
+] as const;
+
+export type InvoiceSchedulingFrequency = (typeof INVOICE_SCHEDULING_FREQUENCIES)[number];
+
+// ── Invoice Grouping Modes (per-customer) ──
+export const INVOICE_GROUPING_MODES = [
+  "per_job",
+  "per_po",
+  "per_project",
+  "per_site",
+  "combine_all",
+] as const;
+
+export type InvoiceGroupingMode = (typeof INVOICE_GROUPING_MODES)[number];
+
+// ── RCTI Payment Frequencies ──
+export const RCTI_PAYMENT_FREQUENCIES = [
+  "weekly",
+  "bi_monthly",
+  "monthly",
+] as const;
+
+export type RctiPaymentFrequency = (typeof RCTI_PAYMENT_FREQUENCIES)[number];
+
+// ── RCTI Line Types ──
+export const RCTI_LINE_TYPES = ["charge", "deduction"] as const;
+
+export type RctiLineType = (typeof RCTI_LINE_TYPES)[number];
+
+// ── Deduction Categories ──
+export const DEDUCTION_CATEGORIES = [
+  "yard_parking",
+  "fuel_usage",
+  "overload_penalty",
+  "tip_fee_adjustment",
+  "driver_error",
+  "other",
+] as const;
+
+export type DeductionCategory = (typeof DEDUCTION_CATEGORIES)[number];
+
+// ── Payment Methods ──
+export const PAYMENT_METHODS = [
+  "eft",
+  "cheque",
+  "cash",
+  "credit_card",
+  "other",
+] as const;
+
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+// ── Invoice Sequence Types ──
+export const SEQUENCE_TYPES = ["invoice", "rcti", "credit_note"] as const;
+
+export type SequenceType = (typeof SEQUENCE_TYPES)[number];
+
+// ── AR Approval Statuses ──
+export const AR_APPROVAL_STATUSES = [
+  "pending",
+  "approved",
+  "rejected",
+] as const;
+
+export type ArApprovalStatus = (typeof AR_APPROVAL_STATUSES)[number];
+
+// ── Invoice Dispute Statuses ──
+export const DISPUTE_STATUSES = [
+  "open",
+  "investigating",
+  "resolved",
+  "closed",
+] as const;
+
+export type DisputeStatus = (typeof DISPUTE_STATUSES)[number];
+
+// ── Dispute Resolution Types ──
+export const DISPUTE_RESOLUTION_TYPES = [
+  "explanation_accepted",
+  "credit_note_issued",
+  "invoice_replaced",
+  "adjustment_applied",
+] as const;
+
+export type DisputeResolutionType = (typeof DISPUTE_RESOLUTION_TYPES)[number];
+
+// ── Credit Transaction Types ──
+export const CREDIT_TRANSACTION_TYPES = [
+  "invoice_created",
+  "payment_received",
+  "job_completed",
+  "job_cancelled",
+  "manual_adjustment",
+] as const;
+
+export type CreditTransactionType = (typeof CREDIT_TRANSACTION_TYPES)[number];
 
 // ── Daysheet States (doc 08 workflow: submitted → review → reconciled → processed) ──
 export const DAYSHEET_STATUSES = [

@@ -30,6 +30,20 @@ export const organisation = pgTable("organisation", {
   timezone: varchar("timezone", { length: 50 }).notNull().default("Australia/Brisbane"),
   quotePricingMode: varchar("quote_pricing_mode", { length: 30 }).notNull().default("lock_at_quote"),
   staleRateThresholdDays: integer("stale_rate_threshold_days").notNull().default(180),
+  // RCTI configuration (doc 10)
+  rctiPaymentFrequency: varchar("rcti_payment_frequency", { length: 20 }).notNull().default("weekly"),
+  rctiPaymentDay1: integer("rcti_payment_day_1"),
+  rctiPaymentDay2: integer("rcti_payment_day_2"),
+  rctiCutoffTime: varchar("rcti_cutoff_time", { length: 5 }).notNull().default("17:00"),
+  rctiPaymentTermsDays: integer("rcti_payment_terms_days").notNull().default(7),
+  rctiAutoGenerate: boolean("rcti_auto_generate").notNull().default(false),
+  rctiRequireApproval: boolean("rcti_require_approval").notNull().default(true),
+  rctiGstInclusive: boolean("rcti_gst_inclusive").notNull().default(false),
+  rctiAutoEmailOnApproval: boolean("rcti_auto_email_on_approval").notNull().default(false),
+  rctiIncludeDocketImages: boolean("rcti_include_docket_images").notNull().default(false),
+  rctiEmailStaggerSeconds: integer("rcti_email_stagger_seconds").notNull().default(5),
+  rctiSubjectTemplate: text("rcti_subject_template"),
+  rctiBodyTemplate: text("rcti_body_template"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -1403,6 +1417,7 @@ export const charges = pgTable(
     isOverride: boolean("is_override").notNull().default(false),
     overrideReason: text("override_reason"),
     invoiceId: uuid("invoice_id"),
+    rctiId: uuid("rcti_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1411,6 +1426,8 @@ export const charges = pgTable(
     index("charges_job_id_idx").on(table.jobId),
     index("charges_pricing_line_id_idx").on(table.pricingLineId),
     index("charges_status_idx").on(table.status),
+    index("charges_invoice_id_idx").on(table.invoiceId),
+    index("charges_rcti_id_idx").on(table.rctiId),
   ],
 );
 
@@ -1449,6 +1466,340 @@ export const overages = pgTable(
     index("overages_approval_status_idx").on(table.approvalStatus),
     index("overages_driver_id_idx").on(table.driverId),
     index("overages_asset_id_idx").on(table.assetId),
+  ],
+);
+
+// ══════════════════════════════════════════════════════════════════
+// ── Invoicing & RCTI Tables (doc 10) ──
+// ══════════════════════════════════════════════════════════════════
+
+// ── Invoice Sequences (configurable number generation) ──
+
+export const invoiceSequences = pgTable("invoice_sequences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sequenceType: varchar("sequence_type", { length: 20 }).notNull(),
+  prefix: varchar("prefix", { length: 20 }),
+  suffix: varchar("suffix", { length: 20 }),
+  nextNumber: integer("next_number").notNull().default(1),
+  minDigits: integer("min_digits").notNull().default(4),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── Customer Invoice Settings (per-customer invoicing preferences) ──
+
+export const customerInvoiceSettings = pgTable(
+  "customer_invoice_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id)
+      .unique(),
+    invoiceSchedule: varchar("invoice_schedule", { length: 20 }).notNull().default("on_completion"),
+    invoiceGrouping: varchar("invoice_grouping", { length: 20 }).notNull().default("per_job"),
+    scheduleDayOfWeek: integer("schedule_day_of_week"),
+    scheduleDayOfMonth: integer("schedule_day_of_month"),
+    paymentTermsDays: integer("payment_terms_days").notNull().default(30),
+    creditLimit: numeric("credit_limit", { precision: 14, scale: 2 }),
+    creditWarningPercent: integer("credit_warning_percent").notNull().default(80),
+    creditStop: boolean("credit_stop").notNull().default(false),
+    creditStopReason: text("credit_stop_reason"),
+    creditStopBy: text("credit_stop_by"),
+    creditStopAt: timestamp("credit_stop_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("customer_invoice_settings_company_id_idx").on(table.companyId),
+  ],
+);
+
+// ── Contractor Payment Settings (per-contractor RCTI preferences) ──
+
+export const contractorPaymentSettings = pgTable(
+  "contractor_payment_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id)
+      .unique(),
+    paymentFrequency: varchar("payment_frequency", { length: 20 }).notNull().default("weekly"),
+    paymentDay1: integer("payment_day_1"),
+    paymentDay2: integer("payment_day_2"),
+    cutoffTime: varchar("cutoff_time", { length: 5 }).notNull().default("17:00"),
+    paymentTermsDays: integer("payment_terms_days").notNull().default(7),
+    gstInclusive: boolean("gst_inclusive").notNull().default(false),
+    requireApproval: boolean("require_approval").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("contractor_payment_settings_company_id_idx").on(table.companyId),
+  ],
+);
+
+// ── Invoices ──
+
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    invoiceNumber: varchar("invoice_number", { length: 50 }).notNull().unique(),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => companies.id),
+    status: varchar("status", { length: 20 }).notNull().default("draft"),
+    issueDate: varchar("issue_date", { length: 10 }).notNull(),
+    dueDate: varchar("due_date", { length: 10 }).notNull(),
+    subtotal: numeric("subtotal", { precision: 14, scale: 2 }).notNull().default("0"),
+    total: numeric("total", { precision: 14, scale: 2 }).notNull().default("0"),
+    amountPaid: numeric("amount_paid", { precision: 14, scale: 2 }).notNull().default("0"),
+    groupReference: uuid("group_reference"),
+    groupingMode: varchar("grouping_mode", { length: 20 }),
+    projectId: uuid("project_id").references(() => projects.id),
+    poNumber: varchar("po_number", { length: 100 }),
+    notes: text("notes"),
+    internalNotes: text("internal_notes"),
+    // Verification
+    verifiedBy: text("verified_by"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verificationNotes: text("verification_notes"),
+    // Rejection
+    rejectedBy: text("rejected_by"),
+    rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+    rejectionReason: text("rejection_reason"),
+    // Sending
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    sentBy: text("sent_by"),
+    // Payment
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    // Cancellation
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledBy: text("cancelled_by"),
+    cancellationReason: text("cancellation_reason"),
+    // Xero integration
+    xeroInvoiceId: varchar("xero_invoice_id", { length: 100 }),
+    // Snapshot
+    pricingSnapshot: jsonb("pricing_snapshot"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("invoices_customer_id_idx").on(table.customerId),
+    index("invoices_status_idx").on(table.status),
+    index("invoices_issue_date_idx").on(table.issueDate),
+    index("invoices_due_date_idx").on(table.dueDate),
+    index("invoices_created_at_idx").on(table.createdAt),
+  ],
+);
+
+// ── Invoice Line Items ──
+
+export const invoiceLineItems = pgTable(
+  "invoice_line_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id),
+    lineNumber: integer("line_number").notNull(),
+    chargeId: uuid("charge_id").references(() => charges.id),
+    jobId: uuid("job_id").references(() => jobs.id),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 12, scale: 4 }).notNull(),
+    unitOfMeasure: varchar("unit_of_measure", { length: 20 }),
+    unitPrice: numeric("unit_price", { precision: 12, scale: 4 }).notNull(),
+    lineTotal: numeric("line_total", { precision: 14, scale: 2 }).notNull(),
+    accountCode: varchar("account_code", { length: 20 }),
+    pricingSnapshot: jsonb("pricing_snapshot"),
+    snapshotAt: timestamp("snapshot_at", { withTimezone: true }),
+    calculationMethod: text("calculation_method"),
+    sourceJobNumber: varchar("source_job_number", { length: 20 }),
+    sourceDocketNumber: varchar("source_docket_number", { length: 100 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("invoice_line_items_invoice_id_idx").on(table.invoiceId),
+    index("invoice_line_items_charge_id_idx").on(table.chargeId),
+  ],
+);
+
+// ── RCTI Batches ──
+
+export const rctiBatches = pgTable("rcti_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  batchNumber: varchar("batch_number", { length: 50 }).notNull(),
+  periodStart: varchar("period_start", { length: 10 }).notNull(),
+  periodEnd: varchar("period_end", { length: 10 }).notNull(),
+  contractorCount: integer("contractor_count").notNull().default(0),
+  totalAmount: numeric("total_amount", { precision: 14, scale: 2 }).notNull().default("0"),
+  generatedBy: text("generated_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── RCTIs (Recipient Created Tax Invoices) ──
+
+export const rctis = pgTable(
+  "rctis",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    rctiNumber: varchar("rcti_number", { length: 50 }).notNull().unique(),
+    contractorId: uuid("contractor_id")
+      .notNull()
+      .references(() => companies.id),
+    status: varchar("status", { length: 20 }).notNull().default("draft"),
+    periodStart: varchar("period_start", { length: 10 }).notNull(),
+    periodEnd: varchar("period_end", { length: 10 }).notNull(),
+    issueDate: varchar("issue_date", { length: 10 }),
+    dueDate: varchar("due_date", { length: 10 }),
+    subtotal: numeric("subtotal", { precision: 14, scale: 2 }).notNull().default("0"),
+    deductionsTotal: numeric("deductions_total", { precision: 14, scale: 2 }).notNull().default("0"),
+    total: numeric("total", { precision: 14, scale: 2 }).notNull().default("0"),
+    amountPaid: numeric("amount_paid", { precision: 14, scale: 2 }).notNull().default("0"),
+    batchId: uuid("batch_id").references(() => rctiBatches.id),
+    notes: text("notes"),
+    internalNotes: text("internal_notes"),
+    // Approval
+    approvedBy: text("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvalNotes: text("approval_notes"),
+    // Sending
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    sentBy: text("sent_by"),
+    // Payment
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    // Cancellation
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledBy: text("cancelled_by"),
+    cancellationReason: text("cancellation_reason"),
+    // Dispute
+    disputedAt: timestamp("disputed_at", { withTimezone: true }),
+    disputeReason: text("dispute_reason"),
+    // Remittance
+    remittanceEmailedAt: timestamp("remittance_emailed_at", { withTimezone: true }),
+    // Xero integration
+    xeroBillId: varchar("xero_bill_id", { length: 100 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("rctis_contractor_id_idx").on(table.contractorId),
+    index("rctis_status_idx").on(table.status),
+    index("rctis_period_start_idx").on(table.periodStart),
+    index("rctis_period_end_idx").on(table.periodEnd),
+    index("rctis_batch_id_idx").on(table.batchId),
+    index("rctis_created_at_idx").on(table.createdAt),
+  ],
+);
+
+// ── RCTI Line Items ──
+
+export const rctiLineItems = pgTable(
+  "rcti_line_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    rctiId: uuid("rcti_id")
+      .notNull()
+      .references(() => rctis.id),
+    lineNumber: integer("line_number").notNull(),
+    lineType: varchar("line_type", { length: 20 }).notNull().default("charge"),
+    chargeId: uuid("charge_id").references(() => charges.id),
+    jobId: uuid("job_id").references(() => jobs.id),
+    daysheetId: uuid("daysheet_id").references(() => daysheets.id),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 12, scale: 4 }).notNull(),
+    unitOfMeasure: varchar("unit_of_measure", { length: 20 }),
+    unitPrice: numeric("unit_price", { precision: 12, scale: 4 }).notNull(),
+    lineTotal: numeric("line_total", { precision: 14, scale: 2 }).notNull(),
+    deductionCategory: varchar("deduction_category", { length: 30 }),
+    deductionDetails: text("deduction_details"),
+    assetRegistration: varchar("asset_registration", { length: 20 }),
+    materialName: varchar("material_name", { length: 255 }),
+    sourceJobNumber: varchar("source_job_number", { length: 20 }),
+    sourceDocketNumber: varchar("source_docket_number", { length: 100 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("rcti_line_items_rcti_id_idx").on(table.rctiId),
+    index("rcti_line_items_charge_id_idx").on(table.chargeId),
+  ],
+);
+
+// ── Payments (for invoices and RCTIs) ──
+
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    invoiceId: uuid("invoice_id").references(() => invoices.id),
+    rctiId: uuid("rcti_id").references(() => rctis.id),
+    paymentDate: varchar("payment_date", { length: 10 }).notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    paymentMethod: varchar("payment_method", { length: 20 }).notNull(),
+    referenceNumber: varchar("reference_number", { length: 100 }),
+    xeroPaymentId: varchar("xero_payment_id", { length: 100 }),
+    notes: text("notes"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("payments_invoice_id_idx").on(table.invoiceId),
+    index("payments_rcti_id_idx").on(table.rctiId),
+    index("payments_payment_date_idx").on(table.paymentDate),
+  ],
+);
+
+// ── Credit Transactions ──
+
+export const creditTransactions = pgTable(
+  "credit_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
+    transactionType: varchar("transaction_type", { length: 30 }).notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    referenceId: uuid("reference_id"),
+    referenceType: varchar("reference_type", { length: 20 }),
+    description: text("description"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("credit_transactions_company_id_idx").on(table.companyId),
+    index("credit_transactions_type_idx").on(table.transactionType),
+  ],
+);
+
+// ── AR Approvals (job approval for invoicing) ──
+
+export const arApprovals = pgTable(
+  "ar_approvals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id)
+      .unique(),
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    approvedBy: text("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    rejectedBy: text("rejected_by"),
+    rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+    rejectionNotes: text("rejection_notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("ar_approvals_job_id_idx").on(table.jobId),
+    index("ar_approvals_status_idx").on(table.status),
   ],
 );
 

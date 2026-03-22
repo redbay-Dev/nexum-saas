@@ -31,6 +31,10 @@ import { pricingTemplateRoutes } from "./routes/pricing-templates.js";
 import { priceManagementRoutes } from "./routes/price-management.js";
 import { daysheetRoutes } from "./routes/daysheets.js";
 import { docketRoutes } from "./routes/dockets.js";
+import { invoiceRoutes } from "./routes/invoices.js";
+import { rctiRoutes } from "./routes/rctis.js";
+import { creditRoutes } from "./routes/credit.js";
+import { invoiceSettingsRoutes } from "./routes/invoice-settings.js";
 
 /**
  * Build the Fastify application instance.
@@ -141,6 +145,12 @@ export function buildApp(): ReturnType<typeof Fastify> {
       // Dockets & Daysheets routes
       void api.register(daysheetRoutes, { prefix: "/daysheets" });
       void api.register(docketRoutes, { prefix: "/dockets" });
+
+      // Invoicing & RCTI routes
+      void api.register(invoiceRoutes, { prefix: "/invoices" });
+      void api.register(rctiRoutes, { prefix: "/rctis" });
+      void api.register(creditRoutes, { prefix: "/credit" });
+      void api.register(invoiceSettingsRoutes, { prefix: "/invoice-settings" });
     },
     { prefix: "/api/v1" },
   );

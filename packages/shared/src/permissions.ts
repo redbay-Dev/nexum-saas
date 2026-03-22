@@ -62,6 +62,16 @@ export const PERMISSIONS = [
   "view:rcti",
   "approve:rcti",
 
+  // Invoicing approval & verification
+  "approve:invoicing",
+  "verify:invoicing",
+  "send:invoicing",
+
+  // Credit management
+  "manage:credit",
+  "view:credit",
+  "approve:credit",
+
   // Xero
   "manage:xero",
   "view:xero",
@@ -149,6 +159,12 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "manage:rcti",
     "view:rcti",
     "approve:rcti",
+    "approve:invoicing",
+    "verify:invoicing",
+    "send:invoicing",
+    "manage:credit",
+    "view:credit",
+    "approve:credit",
     "manage:xero",
     "view:xero",
     "view:documents",

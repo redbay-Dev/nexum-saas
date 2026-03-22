@@ -3,14 +3,18 @@ import {
   Briefcase,
   Building2,
   CalendarClock,
+  CheckSquare,
   ChevronRight,
   ClipboardList,
+  CreditCard,
+  FileText,
   FolderKanban,
   Globe,
   LayoutDashboard,
   LogOut,
   MapPin,
   Package,
+  Receipt,
   Settings,
   SlidersHorizontal,
   Truck,
@@ -72,6 +76,13 @@ const OPERATIONS_NAV: NavItem[] = [
   { to: "/materials", label: "Materials", icon: Package },
 ];
 
+const FINANCE_NAV: NavItem[] = [
+  { to: "/ar-approvals", label: "AR Approvals", icon: CheckSquare },
+  { to: "/invoices", label: "Invoices", icon: FileText },
+  { to: "/rctis", label: "RCTIs", icon: Receipt },
+  { to: "/credit", label: "Credit", icon: CreditCard },
+];
+
 const SETTINGS_NAV: NavItem[] = [
   { to: "/settings/organisation", label: "Organisation", icon: Building2 },
   { to: "/settings/users", label: "Users", icon: Users },
@@ -101,6 +112,12 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/materials/new": "Add Material",
   "/daysheets": "Daysheets",
   "/daysheets/new": "New Daysheet",
+  "/ar-approvals": "AR Approvals",
+  "/invoices": "Invoices",
+  "/invoices/new": "New Invoice",
+  "/rctis": "RCTIs",
+  "/rctis/generate": "Generate RCTI",
+  "/credit": "Credit Monitoring",
   "/settings/job-types": "Job Types",
 };
 
@@ -194,6 +211,7 @@ export function AppShell(): React.JSX.Element {
         <SidebarContent>
           <NavSection label="Overview" items={CORE_NAV} />
           <NavSection label="Operations" items={OPERATIONS_NAV} />
+          <NavSection label="Finance" items={FINANCE_NAV} />
           <NavSection label="Settings" items={SETTINGS_NAV} />
         </SidebarContent>
 

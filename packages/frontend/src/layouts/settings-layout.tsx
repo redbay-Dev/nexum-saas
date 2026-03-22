@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from "react-router";
-import { Building2, Users, SlidersHorizontal, FileText, CreditCard, Calculator, BarChart3, Fuel, Copy } from "lucide-react";
+import { Building2, Users, SlidersHorizontal, FileText, CreditCard, Calculator, BarChart3, Fuel, Copy, Receipt } from "lucide-react";
 import { useAuth } from "@frontend/hooks/use-auth.js";
 import { cn } from "@frontend/lib/utils.js";
 import type { Permission } from "@nexum/shared";
@@ -20,6 +20,7 @@ const SETTINGS_ITEMS: SettingsNavItem[] = [
   { to: "/settings/margin-thresholds", label: "Margin Thresholds", icon: BarChart3, permission: "view:pricing" },
   { to: "/settings/surcharges", label: "Surcharges", icon: Fuel, permission: "view:pricing" },
   { to: "/settings/pricing-templates", label: "Pricing Templates", icon: Copy, permission: "view:pricing" },
+  { to: "/settings/invoicing", label: "Invoicing", icon: Receipt, permission: "view:invoicing" },
   { to: "/settings/audit-log", label: "Audit Log", icon: FileText, permission: "view:audit_log" },
 ];
 

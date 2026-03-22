@@ -2,6 +2,149 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.18.0] — 2026-03-22
+
+### Invoicing & RCTI System — Doc 10 Core Implementation
+
+**What was built:**
+
+Complete implementation of the invoicing and RCTI system (doc 10) across 5 phases, covering the core financial pipeline: Charges → Invoices/RCTIs → Payments → Credit Monitoring. This connects the daysheet processing pipeline (doc 08) to the billing cycle.
+
+**New constants (11 arrays):**
+- `INVOICE_STATUSES` — expanded: draft, verified, sent, partially_paid, paid, overdue, rejected, cancelled
+- `RCTI_STATUSES` — expanded: draft, accumulating, ready, pending_approval, approved, sent, partially_paid, paid, cancelled, disputed
+- `INVOICE_SCHEDULING_FREQUENCIES` — on_completion, daily, weekly, fortnightly, monthly
+- `INVOICE_GROUPING_MODES` — per_job, per_po, per_project, per_site, combine_all
+- `RCTI_PAYMENT_FREQUENCIES` — weekly, bi_monthly, monthly
+- `RCTI_LINE_TYPES` — charge, deduction
+- `DEDUCTION_CATEGORIES` — yard_parking, fuel_usage, overload_penalty, tip_fee_adjustment, driver_error, other
+- `PAYMENT_METHODS` — eft, cheque, cash, credit_card, other
+- `SEQUENCE_TYPES` — invoice, rcti, credit_note
+- `AR_APPROVAL_STATUSES` — pending, approved, rejected
+- `CREDIT_TRANSACTION_TYPES` — invoice_created, payment_received, job_completed, job_cancelled, manual_adjustment
+
+**New permissions (6):**
+- `approve:invoicing`, `verify:invoicing`, `send:invoicing` — invoice workflow
+- `manage:credit`, `view:credit`, `approve:credit` — credit management
+
+**New database tables (11) + updates:**
+- `invoice_sequences` — configurable number generation (prefix, suffix, padding)
+- `customer_invoice_settings` — per-customer schedule, grouping, payment terms, credit limit
+- `contractor_payment_settings` — per-contractor frequency, cutoff, payment terms
+- `invoices` — full invoice with verification, rejection, sending, payment, cancellation tracking
+- `invoice_line_items` — with pricing snapshots and calculation methods
+- `rcti_batches` — groups RCTIs generated together
+- `rctis` — full RCTI with approval, sending, payment, dispute tracking
+- `rcti_line_items` — charges and deductions with asset/material references
+- `payments` — for both invoices and RCTIs (partial payments supported)
+- `credit_transactions` — credit usage tracking per customer
+- `ar_approvals` — job-level AR approval gate before invoicing
+- Updated `charges` table with `rcti_id` column and indexes
+- Updated `organisation` table with 13 RCTI configuration fields
+
+**New backend services (7 pure-function modules):**
+- `invoice-number.ts` — configurable sequence formatting (prefix + zero-padding + suffix)
+- `invoice-builder.ts` — charge grouping (5 modes), line item building with pricing snapshots, split invoicing by customer, totals calculation
+- `invoice-status.ts` — 8-state machine with immutability enforcement
+- `rcti-period.ts` — weekly/bi-monthly/monthly period boundary calculation
+- `rcti-builder.ts` — cost charge → RCTI line items, deduction handling, totals
+- `rcti-status.ts` — 10-state machine with immutability enforcement
+- `credit-manager.ts` — credit usage from transaction history, availability checks
+- `payment-tracker.ts` — status determination after payment, outstanding calculation
+
+**New backend routes (5 route files, ~70 endpoints):**
+
+*Invoice routes (`/api/v1/invoices`):*
+- `GET /` — list with filters (status, customer, date range, overdue, search)
+- `GET /:id` — detail with line items and payments
+- `POST /` — create from approved charge IDs (auto-generates number, builds lines, links charges)
+- `PUT /:id` — update draft invoice
+- `DELETE /:id` — soft-delete draft/rejected
+- `POST /:id/transition` — status transitions with validation
+- `POST /:id/verify` — finance verification step
+- `POST /:id/reject` — reject to operations with reason
+- `POST /:id/payments` — record payment (auto-updates status: partially_paid → paid)
+- `GET /ar-queue` — completed jobs pending AR approval
+- `POST /ar-approve/:jobId` — approve/reject job for invoicing
+- `POST /ar-batch-approve` — batch approve jobs
+
+*RCTI routes (`/api/v1/rctis`):*
+- `GET /` — list with filters (status, contractor, period, search)
+- `GET /:id` — detail with line items, deductions, payments
+- `POST /generate` — generate RCTI for contractor+period (from cost charges)
+- `POST /batch-generate` — find all contractors with charges in period
+- `PUT /:id` — update draft/accumulating RCTI
+- `DELETE /:id` — soft-delete draft
+- `POST /:id/transition` — status transitions
+- `POST /:id/approve` — approve RCTI
+- `POST /:id/deductions` — add deduction (recalculates totals)
+- `DELETE /:id/deductions/:subId` — remove deduction (recalculates totals)
+- `POST /:id/payments` — record payment
+
+*Credit routes (`/api/v1/credit`):*
+- `GET /dashboard` — all customers with credit positions
+- `GET /:companyId` — credit detail with transactions
+- `GET /:companyId/transactions` — transaction history
+- `POST /:companyId/stop` — set credit stop with reason
+- `DELETE /:companyId/stop` — remove credit stop
+- `POST /check` — check credit availability for proposed amount
+
+*Invoice settings routes (`/api/v1/invoice-settings`):*
+- `GET /sequences` — list number sequences
+- `PUT /sequences/:id` — update sequence config
+- `GET /customer/:companyId` — customer invoice settings
+- `PUT /customer/:companyId` — update customer settings (upsert)
+- `GET /contractor/:companyId` — contractor payment settings
+- `PUT /contractor/:companyId` — update contractor settings (upsert)
+
+**New frontend pages (9 pages + 2 API hook files):**
+- Invoices list — table with status/customer/date filters
+- Invoice detail — line items, payments, verify/reject/send/payment dialogs, summary cards
+- Invoice create — charge-based invoice builder
+- AR Approvals — queue with batch approve, per-job approve/reject
+- RCTIs list — table with status/contractor/period filters
+- RCTI detail — work items, deductions add/remove, payments, approve/send
+- RCTI generate — contractor + period selector
+- Credit monitoring dashboard — utilisation warnings, credit stop status
+- Invoicing settings — number sequence configuration
+
+**Navigation updates:**
+- New "Finance" sidebar section with AR Approvals, Invoices, RCTIs, Credit entries
+- Settings layout: added Invoicing entry
+- Breadcrumbs for all new routes
+
+**Migration:**
+- `0015_invoicing_rcti.sql` — 11 new tables, 2 table updates, indexes, default sequence seeding
+
+**Test counts:**
+- Before: 452 tests (225 shared + 227 backend)
+- After: **631 tests** (286 shared + 339 backend + 4 pdf + 2 frontend) — **179 new tests**
+- New unit tests: invoice number (6), invoice builder (15), invoice status (14), RCTI period (12), RCTI builder (10), RCTI status (14), credit manager (13), payment tracker (9)
+- New schema tests: 61 (invoice, RCTI, payment, settings, deduction, credit, AR approval schemas)
+
+**All checks pass:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm test` — 631 tests passing
+- `pnpm build` — all packages build
+
+**What's next:**
+Continue strengthening the invoicing system with **batch billing runs** (billing queue UI for scheduled invoicing), **invoice PDF generation** (Handlebars templates with Puppeteer), and **remittance advice email delivery**. Then move to **Xero integration** (doc 11) to sync invoices/bills.
+
+**What's STILL MISSING from doc 10 (deferred for future sessions):**
+- **Batch billing runs** — billing queue showing customers due for invoicing, preview before generating, batch verify/send
+- **Invoice PDF preview** — formatted PDF with draft watermark, document attachments
+- **Remittance advice PDF** — contractor payment document with docket images
+- **Email delivery** — queued email sending for invoices and remittance with retry/stagger
+- **Supplier invoice recording** — AP beyond RCTI (tip fees, material purchases, hire charges)
+- **Supplier invoice matching** — match supplier invoices to job cost lines with discrepancy detection
+- **Customer statements** — formal account statements with ageing (current, 30, 60, 90+ days)
+- **Contractor statements** — RCTI and payment history statements
+- **Invoice disputes** — dispute flag, notes, resolution tracking, SLA tracking
+- **Public document links** — URL-safe links for invoice/document sharing
+- **Missing supplier invoice detection** — report of expected but missing supplier invoices
+- **7-year retention** — archival to cold storage while remaining accessible
+
 ## [0.17.0] — 2026-03-22
 
 ### Dockets & Daysheets — Complete Doc 08 Implementation

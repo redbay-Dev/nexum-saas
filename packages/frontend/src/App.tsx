@@ -46,6 +46,15 @@ import { PricingTemplatesSettingsPage } from "@frontend/pages/settings/pricing-t
 import { DaysheetsPage } from "@frontend/pages/daysheets/index.js";
 import { CreateDaysheetPage } from "@frontend/pages/daysheets/create.js";
 import { DaysheetDetailPage } from "@frontend/pages/daysheets/detail.js";
+import { InvoicesPage } from "@frontend/pages/invoices/index.js";
+import { CreateInvoicePage } from "@frontend/pages/invoices/create.js";
+import { InvoiceDetailPage } from "@frontend/pages/invoices/detail.js";
+import { ArApprovalsPage } from "@frontend/pages/ar-approvals/index.js";
+import { RctisPage } from "@frontend/pages/rctis/index.js";
+import { RctiDetailPage } from "@frontend/pages/rctis/detail.js";
+import { GenerateRctiPage } from "@frontend/pages/rctis/generate.js";
+import { CreditDashboardPage } from "@frontend/pages/credit/index.js";
+import { InvoicingSettingsPage } from "@frontend/pages/settings/invoicing.js";
 
 export function App(): React.JSX.Element {
   return (
@@ -91,6 +100,14 @@ export function App(): React.JSX.Element {
         <Route path="daysheets" element={<DaysheetsPage />} />
         <Route path="daysheets/new" element={<CreateDaysheetPage />} />
         <Route path="daysheets/:id" element={<DaysheetDetailPage />} />
+        <Route path="ar-approvals" element={<ArApprovalsPage />} />
+        <Route path="invoices" element={<InvoicesPage />} />
+        <Route path="invoices/new" element={<CreateInvoicePage />} />
+        <Route path="invoices/:id" element={<InvoiceDetailPage />} />
+        <Route path="rctis" element={<RctisPage />} />
+        <Route path="rctis/generate" element={<GenerateRctiPage />} />
+        <Route path="rctis/:id" element={<RctiDetailPage />} />
+        <Route path="credit" element={<CreditDashboardPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/new" element={<CreateProjectPage />} />
         <Route path="projects/:id" element={<ProjectDetailPage />} />
@@ -107,6 +124,7 @@ export function App(): React.JSX.Element {
           <Route path="surcharges" element={<SurchargesSettingsPage />} />
           <Route path="pricing-templates" element={<PricingTemplatesSettingsPage />} />
           <Route path="pricing-templates/:id" element={<PricingTemplatesSettingsPage />} />
+          <Route path="invoicing" element={<InvoicingSettingsPage />} />
         </Route>
       </Route>
 

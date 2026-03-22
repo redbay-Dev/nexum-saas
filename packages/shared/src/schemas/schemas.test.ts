@@ -36,6 +36,29 @@ import {
   overageDecisionSchema,
   batchProcessDaysheetsSchema,
   reconcileDocketSchema,
+  createInvoiceSchema,
+  updateInvoiceSchema,
+  invoiceStatusTransitionSchema,
+  verifyInvoiceSchema,
+  rejectInvoiceSchema,
+  createInvoiceLineItemSchema,
+  arApprovalDecisionSchema,
+  batchArApprovalSchema,
+  generateRctiSchema,
+  batchGenerateRctisSchema,
+  updateRctiSchema,
+  rctiStatusTransitionSchema,
+  approveRctiSchema,
+  createRctiDeductionSchema,
+  updateRctiDeductionSchema,
+  createPaymentSchema,
+  customerInvoiceSettingsSchema,
+  updateCustomerInvoiceSettingsSchema,
+  contractorPaymentSettingsSchema,
+  updateContractorPaymentSettingsSchema,
+  updateInvoiceSequenceSchema,
+  creditCheckSchema,
+  creditStopSchema,
 } from "./index.js";
 
 // ── ABN Schema ──
@@ -1360,5 +1383,445 @@ describe("reconcileDocketSchema", () => {
 
   it("should reject missing fields", () => {
     expect(reconcileDocketSchema.safeParse({ docketId: "550e8400-e29b-41d4-a716-446655440000" }).success).toBe(false);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// ── Invoicing & RCTI Schema Tests (doc 10) ──
+// ══════════════════════════════════════════════════════════════════
+
+const UUID1 = "550e8400-e29b-41d4-a716-446655440000";
+const UUID2 = "550e8400-e29b-41d4-a716-446655440001";
+
+describe("createInvoiceSchema", () => {
+  it("should accept valid invoice creation", () => {
+    const result = createInvoiceSchema.safeParse({
+      customerId: UUID1,
+      chargeIds: [UUID1, UUID2],
+      issueDate: "2026-03-22",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept with all optional fields", () => {
+    const result = createInvoiceSchema.safeParse({
+      customerId: UUID1,
+      chargeIds: [UUID1],
+      issueDate: "2026-03-22",
+      dueDate: "2026-04-21",
+      groupingMode: "per_job",
+      projectId: UUID2,
+      poNumber: "PO-123",
+      notes: "Test notes",
+      internalNotes: "Internal",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject empty chargeIds", () => {
+    expect(createInvoiceSchema.safeParse({
+      customerId: UUID1,
+      chargeIds: [],
+      issueDate: "2026-03-22",
+    }).success).toBe(false);
+  });
+
+  it("should reject missing customerId", () => {
+    expect(createInvoiceSchema.safeParse({
+      chargeIds: [UUID1],
+      issueDate: "2026-03-22",
+    }).success).toBe(false);
+  });
+
+  it("should reject invalid groupingMode", () => {
+    expect(createInvoiceSchema.safeParse({
+      customerId: UUID1,
+      chargeIds: [UUID1],
+      issueDate: "2026-03-22",
+      groupingMode: "invalid",
+    }).success).toBe(false);
+  });
+});
+
+describe("updateInvoiceSchema", () => {
+  it("should accept partial updates", () => {
+    expect(updateInvoiceSchema.safeParse({ notes: "Updated" }).success).toBe(true);
+  });
+
+  it("should accept empty object", () => {
+    expect(updateInvoiceSchema.safeParse({}).success).toBe(true);
+  });
+});
+
+describe("invoiceStatusTransitionSchema", () => {
+  it("should accept valid transition", () => {
+    expect(invoiceStatusTransitionSchema.safeParse({ status: "verified" }).success).toBe(true);
+  });
+
+  it("should accept with reason", () => {
+    expect(invoiceStatusTransitionSchema.safeParse({
+      status: "rejected",
+      reason: "Incorrect amounts",
+    }).success).toBe(true);
+  });
+
+  it("should reject invalid status", () => {
+    expect(invoiceStatusTransitionSchema.safeParse({ status: "pending" }).success).toBe(false);
+  });
+});
+
+describe("verifyInvoiceSchema", () => {
+  it("should accept with notes", () => {
+    expect(verifyInvoiceSchema.safeParse({ notes: "All checks passed" }).success).toBe(true);
+  });
+
+  it("should accept empty", () => {
+    expect(verifyInvoiceSchema.safeParse({}).success).toBe(true);
+  });
+});
+
+describe("rejectInvoiceSchema", () => {
+  it("should accept with reason", () => {
+    expect(rejectInvoiceSchema.safeParse({ reason: "Wrong pricing" }).success).toBe(true);
+  });
+
+  it("should reject empty reason", () => {
+    expect(rejectInvoiceSchema.safeParse({ reason: "" }).success).toBe(false);
+  });
+
+  it("should reject missing reason", () => {
+    expect(rejectInvoiceSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("createInvoiceLineItemSchema", () => {
+  it("should accept valid line item", () => {
+    const result = createInvoiceLineItemSchema.safeParse({
+      description: "Cartage 100t @ $50/t",
+      quantity: 100,
+      unitPrice: 50,
+      lineTotal: 5000,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept with optional fields", () => {
+    const result = createInvoiceLineItemSchema.safeParse({
+      description: "Cartage",
+      quantity: 100,
+      unitPrice: 50,
+      lineTotal: 5000,
+      unitOfMeasure: "tonne",
+      accountCode: "4100",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject missing description", () => {
+    expect(createInvoiceLineItemSchema.safeParse({
+      quantity: 100,
+      unitPrice: 50,
+      lineTotal: 5000,
+    }).success).toBe(false);
+  });
+});
+
+describe("arApprovalDecisionSchema", () => {
+  it("should accept approved", () => {
+    expect(arApprovalDecisionSchema.safeParse({ decision: "approved" }).success).toBe(true);
+  });
+
+  it("should accept rejected with notes", () => {
+    expect(arApprovalDecisionSchema.safeParse({
+      decision: "rejected",
+      notes: "Quantities incorrect",
+    }).success).toBe(true);
+  });
+
+  it("should reject invalid decision", () => {
+    expect(arApprovalDecisionSchema.safeParse({ decision: "pending" }).success).toBe(false);
+  });
+});
+
+describe("batchArApprovalSchema", () => {
+  it("should accept valid job IDs", () => {
+    expect(batchArApprovalSchema.safeParse({ jobIds: [UUID1, UUID2] }).success).toBe(true);
+  });
+
+  it("should reject empty array", () => {
+    expect(batchArApprovalSchema.safeParse({ jobIds: [] }).success).toBe(false);
+  });
+});
+
+describe("generateRctiSchema", () => {
+  it("should accept valid generation request", () => {
+    const result = generateRctiSchema.safeParse({
+      contractorId: UUID1,
+      periodStart: "2026-03-01",
+      periodEnd: "2026-03-07",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject missing contractorId", () => {
+    expect(generateRctiSchema.safeParse({
+      periodStart: "2026-03-01",
+      periodEnd: "2026-03-07",
+    }).success).toBe(false);
+  });
+});
+
+describe("batchGenerateRctisSchema", () => {
+  it("should accept valid batch request", () => {
+    expect(batchGenerateRctisSchema.safeParse({
+      periodStart: "2026-03-01",
+      periodEnd: "2026-03-07",
+    }).success).toBe(true);
+  });
+
+  it("should reject missing period", () => {
+    expect(batchGenerateRctisSchema.safeParse({ periodStart: "2026-03-01" }).success).toBe(false);
+  });
+});
+
+describe("updateRctiSchema", () => {
+  it("should accept partial updates", () => {
+    expect(updateRctiSchema.safeParse({ notes: "Updated" }).success).toBe(true);
+  });
+});
+
+describe("rctiStatusTransitionSchema", () => {
+  it("should accept valid RCTI status", () => {
+    expect(rctiStatusTransitionSchema.safeParse({ status: "approved" }).success).toBe(true);
+  });
+
+  it("should accept accumulating", () => {
+    expect(rctiStatusTransitionSchema.safeParse({ status: "accumulating" }).success).toBe(true);
+  });
+
+  it("should reject invalid status", () => {
+    expect(rctiStatusTransitionSchema.safeParse({ status: "void" }).success).toBe(false);
+  });
+});
+
+describe("approveRctiSchema", () => {
+  it("should accept with notes", () => {
+    expect(approveRctiSchema.safeParse({ notes: "Looks good" }).success).toBe(true);
+  });
+
+  it("should accept empty", () => {
+    expect(approveRctiSchema.safeParse({}).success).toBe(true);
+  });
+});
+
+describe("createRctiDeductionSchema", () => {
+  it("should accept valid deduction", () => {
+    const result = createRctiDeductionSchema.safeParse({
+      deductionCategory: "fuel_usage",
+      description: "Fuel top-up 200L",
+      amount: 350,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept with details", () => {
+    const result = createRctiDeductionSchema.safeParse({
+      deductionCategory: "yard_parking",
+      description: "Monthly parking",
+      amount: 500,
+      details: "March 2026 parking fee",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject invalid category", () => {
+    expect(createRctiDeductionSchema.safeParse({
+      deductionCategory: "invalid",
+      description: "Test",
+      amount: 100,
+    }).success).toBe(false);
+  });
+
+  it("should reject empty description", () => {
+    expect(createRctiDeductionSchema.safeParse({
+      deductionCategory: "fuel_usage",
+      description: "",
+      amount: 100,
+    }).success).toBe(false);
+  });
+
+  it("should reject negative amount", () => {
+    expect(createRctiDeductionSchema.safeParse({
+      deductionCategory: "fuel_usage",
+      description: "Fuel",
+      amount: -50,
+    }).success).toBe(false);
+  });
+});
+
+describe("updateRctiDeductionSchema", () => {
+  it("should accept partial update", () => {
+    expect(updateRctiDeductionSchema.safeParse({ amount: 200 }).success).toBe(true);
+  });
+
+  it("should accept empty", () => {
+    expect(updateRctiDeductionSchema.safeParse({}).success).toBe(true);
+  });
+});
+
+describe("createPaymentSchema", () => {
+  it("should accept valid payment", () => {
+    const result = createPaymentSchema.safeParse({
+      paymentDate: "2026-03-22",
+      amount: 5000,
+      paymentMethod: "eft",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept with optional fields", () => {
+    const result = createPaymentSchema.safeParse({
+      paymentDate: "2026-03-22",
+      amount: 5000,
+      paymentMethod: "cheque",
+      referenceNumber: "CHQ-12345",
+      notes: "March payment",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject zero amount", () => {
+    expect(createPaymentSchema.safeParse({
+      paymentDate: "2026-03-22",
+      amount: 0,
+      paymentMethod: "eft",
+    }).success).toBe(false);
+  });
+
+  it("should reject invalid payment method", () => {
+    expect(createPaymentSchema.safeParse({
+      paymentDate: "2026-03-22",
+      amount: 100,
+      paymentMethod: "bitcoin",
+    }).success).toBe(false);
+  });
+});
+
+describe("customerInvoiceSettingsSchema", () => {
+  it("should accept defaults", () => {
+    const result = customerInvoiceSettingsSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.invoiceSchedule).toBe("on_completion");
+      expect(result.data.invoiceGrouping).toBe("per_job");
+      expect(result.data.paymentTermsDays).toBe(30);
+      expect(result.data.creditWarningPercent).toBe(80);
+      expect(result.data.creditStop).toBe(false);
+    }
+  });
+
+  it("should accept all frequencies", () => {
+    for (const freq of ["on_completion", "daily", "weekly", "fortnightly", "monthly"] as const) {
+      expect(customerInvoiceSettingsSchema.safeParse({ invoiceSchedule: freq }).success).toBe(true);
+    }
+  });
+
+  it("should accept all grouping modes", () => {
+    for (const mode of ["per_job", "per_po", "per_project", "per_site", "combine_all"] as const) {
+      expect(customerInvoiceSettingsSchema.safeParse({ invoiceGrouping: mode }).success).toBe(true);
+    }
+  });
+
+  it("should accept credit limit", () => {
+    expect(customerInvoiceSettingsSchema.safeParse({ creditLimit: 50000 }).success).toBe(true);
+  });
+
+  it("should accept null credit limit (no limit)", () => {
+    expect(customerInvoiceSettingsSchema.safeParse({ creditLimit: null }).success).toBe(true);
+  });
+});
+
+describe("updateCustomerInvoiceSettingsSchema", () => {
+  it("should accept partial update", () => {
+    expect(updateCustomerInvoiceSettingsSchema.safeParse({
+      invoiceSchedule: "monthly",
+      creditLimit: 100000,
+    }).success).toBe(true);
+  });
+});
+
+describe("contractorPaymentSettingsSchema", () => {
+  it("should accept defaults", () => {
+    const result = contractorPaymentSettingsSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.paymentFrequency).toBe("weekly");
+      expect(result.data.cutoffTime).toBe("17:00");
+      expect(result.data.paymentTermsDays).toBe(7);
+      expect(result.data.gstInclusive).toBe(false);
+      expect(result.data.requireApproval).toBe(true);
+    }
+  });
+
+  it("should accept bi-monthly with payment days", () => {
+    expect(contractorPaymentSettingsSchema.safeParse({
+      paymentFrequency: "bi_monthly",
+      paymentDay1: 15,
+      paymentDay2: 28,
+    }).success).toBe(true);
+  });
+
+  it("should reject invalid frequency", () => {
+    expect(contractorPaymentSettingsSchema.safeParse({
+      paymentFrequency: "daily",
+    }).success).toBe(false);
+  });
+});
+
+describe("updateContractorPaymentSettingsSchema", () => {
+  it("should accept partial update", () => {
+    expect(updateContractorPaymentSettingsSchema.safeParse({
+      paymentFrequency: "monthly",
+    }).success).toBe(true);
+  });
+});
+
+describe("updateInvoiceSequenceSchema", () => {
+  it("should accept prefix update", () => {
+    expect(updateInvoiceSequenceSchema.safeParse({ prefix: "INV-" }).success).toBe(true);
+  });
+
+  it("should accept next number", () => {
+    expect(updateInvoiceSequenceSchema.safeParse({ nextNumber: 100 }).success).toBe(true);
+  });
+
+  it("should reject zero next number", () => {
+    expect(updateInvoiceSequenceSchema.safeParse({ nextNumber: 0 }).success).toBe(false);
+  });
+});
+
+describe("creditCheckSchema", () => {
+  it("should accept valid check", () => {
+    expect(creditCheckSchema.safeParse({
+      companyId: UUID1,
+      amount: 10000,
+    }).success).toBe(true);
+  });
+
+  it("should reject negative amount", () => {
+    expect(creditCheckSchema.safeParse({
+      companyId: UUID1,
+      amount: -100,
+    }).success).toBe(false);
+  });
+});
+
+describe("creditStopSchema", () => {
+  it("should accept with reason", () => {
+    expect(creditStopSchema.safeParse({ reason: "Overdue payments" }).success).toBe(true);
+  });
+
+  it("should reject empty reason", () => {
+    expect(creditStopSchema.safeParse({ reason: "" }).success).toBe(false);
   });
 });
