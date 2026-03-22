@@ -175,25 +175,84 @@ export const RCTI_STATUSES = [
 
 export type RctiStatus = (typeof RCTI_STATUSES)[number];
 
-// ── Daysheet States ──
+// ── Daysheet States (doc 08 workflow: submitted → review → reconciled → processed) ──
 export const DAYSHEET_STATUSES = [
-  "unprocessed",
-  "reviewed",
-  "approved",
+  "submitted",
+  "review",
+  "reconciled",
+  "processed",
   "rejected",
 ] as const;
 
 export type DaysheetStatus = (typeof DAYSHEET_STATUSES)[number];
 
-// ── Docket States ──
+// ── Daysheet Submission Channels ──
+export const DAYSHEET_SUBMISSION_CHANNELS = [
+  "driverx",
+  "portal",
+  "staff_entry",
+  "auto_generated",
+] as const;
+
+export type DaysheetSubmissionChannel = (typeof DAYSHEET_SUBMISSION_CHANNELS)[number];
+
+// ── Docket States (doc 08: uploaded → matched → reconciled → filed) ──
 export const DOCKET_STATUSES = [
-  "pending",
-  "verified",
-  "disputed",
-  "resolved",
+  "uploaded",
+  "matched",
+  "reconciled",
+  "filed",
 ] as const;
 
 export type DocketStatus = (typeof DOCKET_STATUSES)[number];
+
+// ── Docket Types ──
+export const DOCKET_TYPES = [
+  "weighbridge_ticket",
+  "tip_receipt",
+  "delivery_receipt",
+  "collection_receipt",
+] as const;
+
+export type DocketType = (typeof DOCKET_TYPES)[number];
+
+// ── Charge Statuses ──
+export const CHARGE_STATUSES = [
+  "pending",
+  "approved",
+  "invoiced",
+  "void",
+] as const;
+
+export type ChargeStatus = (typeof CHARGE_STATUSES)[number];
+
+// ── Overage Types ──
+export const OVERAGE_TYPES = [
+  "payload",
+  "volume",
+  "contract_limit",
+] as const;
+
+export type OverageType = (typeof OVERAGE_TYPES)[number];
+
+// ── Overage Severity ──
+export const OVERAGE_SEVERITIES = [
+  "minor",
+  "significant",
+  "critical",
+] as const;
+
+export type OverageSeverity = (typeof OVERAGE_SEVERITIES)[number];
+
+// ── Overage Approval Statuses ──
+export const OVERAGE_APPROVAL_STATUSES = [
+  "pending",
+  "approved",
+  "rejected",
+  "auto_approved",
+] as const;
+
+export type OverageApprovalStatus = (typeof OVERAGE_APPROVAL_STATUSES)[number];
 
 // ── Asset Categories ──
 export const ASSET_CATEGORIES = [

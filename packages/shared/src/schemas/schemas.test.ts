@@ -28,6 +28,14 @@ import {
   bulkPriceUpdateSchema,
   createPricingAllocationSchema,
   updateOrganisationSchema,
+  createDaysheetSchema,
+  createDaysheetLoadSchema,
+  daysheetStatusTransitionSchema,
+  createDocketSchema,
+  createChargeSchema,
+  overageDecisionSchema,
+  batchProcessDaysheetsSchema,
+  reconcileDocketSchema,
 } from "./index.js";
 
 // ── ABN Schema ──
@@ -1160,5 +1168,197 @@ describe("updateOrganisationSchema pricing fields", () => {
     expect(updateOrganisationSchema.safeParse({
       staleRateThresholdDays: 0,
     }).success).toBe(false);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════
+// ── Daysheet & Docket Schemas (doc 08) ──
+// ══════════════════════════════════════════════════════════════════
+
+describe("createDaysheetSchema", () => {
+  it("should validate a valid daysheet", () => {
+    const result = createDaysheetSchema.safeParse({
+      jobId: "550e8400-e29b-41d4-a716-446655440000",
+      workDate: "2026-03-22",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.submissionChannel).toBe("staff_entry");
+    }
+  });
+
+  it("should reject without jobId", () => {
+    expect(createDaysheetSchema.safeParse({ workDate: "2026-03-22" }).success).toBe(false);
+  });
+
+  it("should reject without workDate", () => {
+    expect(createDaysheetSchema.safeParse({ jobId: "550e8400-e29b-41d4-a716-446655440000" }).success).toBe(false);
+  });
+
+  it("should accept all submission channels", () => {
+    for (const channel of ["driverx", "portal", "staff_entry", "auto_generated"] as const) {
+      const result = createDaysheetSchema.safeParse({
+        jobId: "550e8400-e29b-41d4-a716-446655440000",
+        workDate: "2026-03-22",
+        submissionChannel: channel,
+      });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it("should accept optional time fields", () => {
+    const result = createDaysheetSchema.safeParse({
+      jobId: "550e8400-e29b-41d4-a716-446655440000",
+      workDate: "2026-03-22",
+      startTime: "06:00",
+      endTime: "14:30",
+      breakMinutes: 30,
+      overtimeHours: 2,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject negative breakMinutes", () => {
+    expect(createDaysheetSchema.safeParse({
+      jobId: "550e8400-e29b-41d4-a716-446655440000",
+      workDate: "2026-03-22",
+      breakMinutes: -10,
+    }).success).toBe(false);
+  });
+});
+
+describe("createDaysheetLoadSchema", () => {
+  it("should validate a valid load", () => {
+    const result = createDaysheetLoadSchema.safeParse({
+      loadNumber: 1,
+      materialName: "Fill Sand",
+      grossWeight: 45.5,
+      tareWeight: 22.0,
+      quantity: 23.5,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject loadNumber < 1", () => {
+    expect(createDaysheetLoadSchema.safeParse({ loadNumber: 0 }).success).toBe(false);
+  });
+
+  it("should reject negative weights", () => {
+    expect(createDaysheetLoadSchema.safeParse({
+      loadNumber: 1,
+      grossWeight: -5,
+    }).success).toBe(false);
+  });
+});
+
+describe("daysheetStatusTransitionSchema", () => {
+  it("should accept valid statuses", () => {
+    for (const status of ["submitted", "review", "reconciled", "processed", "rejected"] as const) {
+      expect(daysheetStatusTransitionSchema.safeParse({ status }).success).toBe(true);
+    }
+  });
+
+  it("should reject invalid status", () => {
+    expect(daysheetStatusTransitionSchema.safeParse({ status: "invalid" }).success).toBe(false);
+  });
+});
+
+describe("createDocketSchema", () => {
+  it("should validate a valid docket", () => {
+    const result = createDocketSchema.safeParse({
+      jobId: "550e8400-e29b-41d4-a716-446655440000",
+      docketType: "weighbridge_ticket",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept all docket types", () => {
+    for (const type of ["weighbridge_ticket", "tip_receipt", "delivery_receipt", "collection_receipt"] as const) {
+      const result = createDocketSchema.safeParse({
+        jobId: "550e8400-e29b-41d4-a716-446655440000",
+        docketType: type,
+      });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it("should accept AI confidence scores", () => {
+    const result = createDocketSchema.safeParse({
+      jobId: "550e8400-e29b-41d4-a716-446655440000",
+      docketType: "weighbridge_ticket",
+      aiConfidence: { grossWeight: 95, tareWeight: 90, netWeight: 85 },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject AI confidence above 100", () => {
+    expect(createDocketSchema.safeParse({
+      jobId: "550e8400-e29b-41d4-a716-446655440000",
+      docketType: "weighbridge_ticket",
+      aiConfidence: { grossWeight: 150 },
+    }).success).toBe(false);
+  });
+});
+
+describe("createChargeSchema", () => {
+  it("should validate a valid charge", () => {
+    const result = createChargeSchema.safeParse({
+      daysheetId: "550e8400-e29b-41d4-a716-446655440000",
+      jobId: "550e8400-e29b-41d4-a716-446655440001",
+      lineType: "revenue",
+      category: "cartage",
+      rateType: "per_tonne",
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("overageDecisionSchema", () => {
+  it("should accept approved with notes", () => {
+    const result = overageDecisionSchema.safeParse({
+      approvalStatus: "approved",
+      approvalNotes: "Within acceptable tolerance",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept rejected", () => {
+    expect(overageDecisionSchema.safeParse({ approvalStatus: "rejected" }).success).toBe(true);
+  });
+
+  it("should reject invalid status", () => {
+    expect(overageDecisionSchema.safeParse({ approvalStatus: "pending" }).success).toBe(false);
+  });
+});
+
+describe("batchProcessDaysheetsSchema", () => {
+  it("should accept array of daysheet IDs", () => {
+    const result = batchProcessDaysheetsSchema.safeParse({
+      daysheetIds: ["550e8400-e29b-41d4-a716-446655440000"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject empty array", () => {
+    expect(batchProcessDaysheetsSchema.safeParse({ daysheetIds: [] }).success).toBe(false);
+  });
+
+  it("should reject more than 100 IDs", () => {
+    const ids = Array.from({ length: 101 }, (_, i) => `550e8400-e29b-41d4-a716-44665544${String(i).padStart(4, "0")}`);
+    expect(batchProcessDaysheetsSchema.safeParse({ daysheetIds: ids }).success).toBe(false);
+  });
+});
+
+describe("reconcileDocketSchema", () => {
+  it("should accept valid UUIDs", () => {
+    const result = reconcileDocketSchema.safeParse({
+      docketId: "550e8400-e29b-41d4-a716-446655440000",
+      daysheetId: "550e8400-e29b-41d4-a716-446655440001",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject missing fields", () => {
+    expect(reconcileDocketSchema.safeParse({ docketId: "550e8400-e29b-41d4-a716-446655440000" }).success).toBe(false);
   });
 });

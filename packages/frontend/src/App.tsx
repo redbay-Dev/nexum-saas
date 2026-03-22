@@ -43,6 +43,9 @@ import { MarkupRulesSettingsPage } from "@frontend/pages/settings/markup-rules.j
 import { MarginThresholdsSettingsPage } from "@frontend/pages/settings/margin-thresholds.js";
 import { SurchargesSettingsPage } from "@frontend/pages/settings/surcharges.js";
 import { PricingTemplatesSettingsPage } from "@frontend/pages/settings/pricing-templates.js";
+import { DaysheetsPage } from "@frontend/pages/daysheets/index.js";
+import { CreateDaysheetPage } from "@frontend/pages/daysheets/create.js";
+import { DaysheetDetailPage } from "@frontend/pages/daysheets/detail.js";
 
 export function App(): React.JSX.Element {
   return (
@@ -85,6 +88,9 @@ export function App(): React.JSX.Element {
         <Route path="jobs" element={<JobsPage />} />
         <Route path="jobs/new" element={<CreateJobPage />} />
         <Route path="jobs/:id" element={<JobDetailPage />} />
+        <Route path="daysheets" element={<DaysheetsPage />} />
+        <Route path="daysheets/new" element={<CreateDaysheetPage />} />
+        <Route path="daysheets/:id" element={<DaysheetDetailPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/new" element={<CreateProjectPage />} />
         <Route path="projects/:id" element={<ProjectDetailPage />} />

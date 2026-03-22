@@ -29,6 +29,8 @@ import { marginThresholdRoutes } from "./routes/margin-thresholds.js";
 import { surchargeRoutes } from "./routes/surcharges.js";
 import { pricingTemplateRoutes } from "./routes/pricing-templates.js";
 import { priceManagementRoutes } from "./routes/price-management.js";
+import { daysheetRoutes } from "./routes/daysheets.js";
+import { docketRoutes } from "./routes/dockets.js";
 
 /**
  * Build the Fastify application instance.
@@ -135,6 +137,10 @@ export function buildApp(): ReturnType<typeof Fastify> {
       void api.register(surchargeRoutes, { prefix: "/surcharges" });
       void api.register(pricingTemplateRoutes, { prefix: "/pricing-templates" });
       void api.register(priceManagementRoutes, { prefix: "/price-management" });
+
+      // Dockets & Daysheets routes
+      void api.register(daysheetRoutes, { prefix: "/daysheets" });
+      void api.register(docketRoutes, { prefix: "/dockets" });
     },
     { prefix: "/api/v1" },
   );

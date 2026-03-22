@@ -1228,6 +1228,230 @@ export const marginThresholds = pgTable(
   ],
 );
 
+// ══════════════════════════════════════════════════════════════════
+// ── Dockets & Daysheets Tables (doc 08) ──
+// ══════════════════════════════════════════════════════════════════
+
+// ── Daysheets (primary work record) ──
+
+export const daysheets = pgTable(
+  "daysheets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    assignmentId: uuid("assignment_id").references(() => jobAssignments.id),
+    driverId: uuid("driver_id").references(() => employees.id),
+    assetId: uuid("asset_id").references(() => assets.id),
+    workDate: varchar("work_date", { length: 10 }).notNull(),
+    submissionChannel: varchar("submission_channel", { length: 20 }).notNull().default("staff_entry"),
+    status: varchar("status", { length: 20 }).notNull().default("submitted"),
+    // Tonnage work
+    loadCount: integer("load_count"),
+    totalQuantity: numeric("total_quantity", { precision: 12, scale: 4 }),
+    totalGrossWeight: numeric("total_gross_weight", { precision: 12, scale: 4 }),
+    totalTareWeight: numeric("total_tare_weight", { precision: 12, scale: 4 }),
+    totalNetWeight: numeric("total_net_weight", { precision: 12, scale: 4 }),
+    // Hourly work
+    startTime: varchar("start_time", { length: 5 }),
+    endTime: varchar("end_time", { length: 5 }),
+    hoursWorked: numeric("hours_worked", { precision: 6, scale: 2 }),
+    overtimeHours: numeric("overtime_hours", { precision: 6, scale: 2 }),
+    breakMinutes: integer("break_minutes"),
+    totalBillableHours: numeric("total_billable_hours", { precision: 6, scale: 2 }),
+    // Locations
+    pickupLocationId: uuid("pickup_location_id").references(() => jobLocations.id),
+    deliveryLocationId: uuid("delivery_location_id").references(() => jobLocations.id),
+    // Processing metadata
+    isAutoProcessed: boolean("is_auto_processed").notNull().default(false),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    processedBy: text("processed_by"),
+    rejectionReason: text("rejection_reason"),
+    // Notes
+    notes: text("notes"),
+    internalNotes: text("internal_notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("daysheets_job_id_idx").on(table.jobId),
+    index("daysheets_driver_id_idx").on(table.driverId),
+    index("daysheets_asset_id_idx").on(table.assetId),
+    index("daysheets_work_date_idx").on(table.workDate),
+    index("daysheets_status_idx").on(table.status),
+    index("daysheets_assignment_id_idx").on(table.assignmentId),
+  ],
+);
+
+// ── Daysheet Loads (individual loads within a daysheet) ──
+
+export const daysheetLoads = pgTable(
+  "daysheet_loads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    daysheetId: uuid("daysheet_id")
+      .notNull()
+      .references(() => daysheets.id),
+    loadNumber: integer("load_number").notNull(),
+    materialSourceType: varchar("material_source_type", { length: 20 }),
+    materialSourceId: uuid("material_source_id"),
+    materialName: varchar("material_name", { length: 255 }),
+    unitOfMeasure: varchar("unit_of_measure", { length: 20 }),
+    quantity: numeric("quantity", { precision: 12, scale: 4 }),
+    grossWeight: numeric("gross_weight", { precision: 12, scale: 4 }),
+    tareWeight: numeric("tare_weight", { precision: 12, scale: 4 }),
+    netWeight: numeric("net_weight", { precision: 12, scale: 4 }),
+    docketNumber: varchar("docket_number", { length: 100 }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("daysheet_loads_daysheet_id_idx").on(table.daysheetId),
+  ],
+);
+
+// ── Dockets (external supporting documents) ──
+
+export const dockets = pgTable(
+  "dockets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    daysheetId: uuid("daysheet_id").references(() => daysheets.id),
+    docketType: varchar("docket_type", { length: 30 }).notNull(),
+    docketNumber: varchar("docket_number", { length: 100 }),
+    status: varchar("status", { length: 20 }).notNull().default("uploaded"),
+    issuerName: varchar("issuer_name", { length: 255 }),
+    issueDate: varchar("issue_date", { length: 10 }),
+    // Extracted data
+    materialName: varchar("material_name", { length: 255 }),
+    quantity: numeric("quantity", { precision: 12, scale: 4 }),
+    unitOfMeasure: varchar("unit_of_measure", { length: 20 }),
+    grossWeight: numeric("gross_weight", { precision: 12, scale: 4 }),
+    tareWeight: numeric("tare_weight", { precision: 12, scale: 4 }),
+    netWeight: numeric("net_weight", { precision: 12, scale: 4 }),
+    tipFee: numeric("tip_fee", { precision: 12, scale: 2 }),
+    environmentalLevy: numeric("environmental_levy", { precision: 12, scale: 2 }),
+    // AI processing
+    aiConfidence: jsonb("ai_confidence").$type<Record<string, number>>(),
+    aiProcessed: boolean("ai_processed").notNull().default(false),
+    // Reconciliation
+    hasDiscrepancy: boolean("has_discrepancy").notNull().default(false),
+    discrepancyNotes: text("discrepancy_notes"),
+    // Notes
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("dockets_job_id_idx").on(table.jobId),
+    index("dockets_daysheet_id_idx").on(table.daysheetId),
+    index("dockets_status_idx").on(table.status),
+    index("dockets_docket_type_idx").on(table.docketType),
+  ],
+);
+
+// ── Docket Files (uploaded images/documents) ──
+
+export const docketFiles = pgTable(
+  "docket_files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    docketId: uuid("docket_id")
+      .notNull()
+      .references(() => dockets.id),
+    fileName: varchar("file_name", { length: 500 }).notNull(),
+    fileSize: integer("file_size").notNull(),
+    mimeType: varchar("mime_type", { length: 100 }).notNull(),
+    storageKey: text("storage_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("docket_files_docket_id_idx").on(table.docketId),
+  ],
+);
+
+// ── Charges (created from daysheet processing) ──
+
+export const charges = pgTable(
+  "charges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    daysheetId: uuid("daysheet_id")
+      .notNull()
+      .references(() => daysheets.id),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    pricingLineId: uuid("pricing_line_id").references(() => jobPricingLines.id),
+    lineType: varchar("line_type", { length: 10 }).notNull(),
+    partyId: uuid("party_id").references(() => companies.id),
+    partyName: varchar("party_name", { length: 255 }),
+    category: varchar("category", { length: 20 }).notNull(),
+    description: text("description"),
+    rateType: varchar("rate_type", { length: 20 }).notNull(),
+    quantity: numeric("quantity", { precision: 12, scale: 4 }).notNull().default("0"),
+    unitRate: numeric("unit_rate", { precision: 12, scale: 4 }).notNull().default("0"),
+    total: numeric("total", { precision: 14, scale: 2 }).notNull().default("0"),
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    isOverride: boolean("is_override").notNull().default(false),
+    overrideReason: text("override_reason"),
+    invoiceId: uuid("invoice_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("charges_daysheet_id_idx").on(table.daysheetId),
+    index("charges_job_id_idx").on(table.jobId),
+    index("charges_pricing_line_id_idx").on(table.pricingLineId),
+    index("charges_status_idx").on(table.status),
+  ],
+);
+
+// ── Overages (detected during processing) ──
+
+export const overages = pgTable(
+  "overages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    daysheetId: uuid("daysheet_id")
+      .notNull()
+      .references(() => daysheets.id),
+    daysheetLoadId: uuid("daysheet_load_id").references(() => daysheetLoads.id),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    overageType: varchar("overage_type", { length: 20 }).notNull(),
+    severity: varchar("severity", { length: 20 }).notNull(),
+    actualValue: numeric("actual_value", { precision: 12, scale: 4 }).notNull(),
+    limitValue: numeric("limit_value", { precision: 12, scale: 4 }).notNull(),
+    overageAmount: numeric("overage_amount", { precision: 12, scale: 4 }).notNull(),
+    overagePercent: numeric("overage_percent", { precision: 8, scale: 4 }).notNull(),
+    approvalStatus: varchar("approval_status", { length: 20 }).notNull().default("pending"),
+    approvedBy: text("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvalNotes: text("approval_notes"),
+    // Context
+    driverId: uuid("driver_id").references(() => employees.id),
+    assetId: uuid("asset_id").references(() => assets.id),
+    materialName: varchar("material_name", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("overages_daysheet_id_idx").on(table.daysheetId),
+    index("overages_job_id_idx").on(table.jobId),
+    index("overages_approval_status_idx").on(table.approvalStatus),
+    index("overages_driver_id_idx").on(table.driverId),
+    index("overages_asset_id_idx").on(table.assetId),
+  ],
+);
+
 // ── Roles & Permissions ──
 
 export const roles = pgTable("roles", {

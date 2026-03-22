@@ -2,6 +2,110 @@
 
 All notable changes to the Nexum project will be documented in this file.
 
+## [0.17.0] — 2026-03-22
+
+### Dockets & Daysheets — Complete Doc 08 Implementation
+
+**What was built:**
+
+Full implementation of the daysheet and docket system (doc 08) — the bridge between "the job happened" and "here's the invoice." Daysheets are the primary work record (what the driver did), dockets are external supporting documents (weighbridge tickets, tip receipts).
+
+**New constants (8 enums):**
+- `DAYSHEET_STATUSES` — updated workflow: submitted → review → reconciled → processed (+ rejected)
+- `DAYSHEET_SUBMISSION_CHANNELS` — driverx, portal, staff_entry, auto_generated
+- `DOCKET_STATUSES` — uploaded → matched → reconciled → filed
+- `DOCKET_TYPES` — weighbridge_ticket, tip_receipt, delivery_receipt, collection_receipt
+- `CHARGE_STATUSES` — pending, approved, invoiced, void
+- `OVERAGE_TYPES` — payload, volume, contract_limit
+- `OVERAGE_SEVERITIES` — minor (auto-approve), significant, critical
+- `OVERAGE_APPROVAL_STATUSES` — pending, approved, rejected, auto_approved
+
+**New database tables (6):**
+- `daysheets` — primary work record with tonnage/hourly fields, submission channel, processing metadata
+- `daysheet_loads` — individual loads within a daysheet (material, weights, quantities per load)
+- `dockets` — external documents with AI confidence scores, reconciliation status
+- `docket_files` — uploaded images/documents linked to dockets (ready for S3/Spaces)
+- `charges` — charge lines created from daysheet processing, linked to pricing lines
+- `overages` — detected overages with severity classification and approval workflow
+
+**New backend services (4 pure-function modules):**
+- `weight-calculator.ts` — net weight = gross - tare, payable weight capping, payload overage check, load aggregation
+- `time-calculator.ts` — hours from start/end times, overtime calculation, break deduction, session aggregation
+- `overage-detector.ts` — payload/volume/contract limit checks with 3-tier severity (minor 2%, significant, critical 10%)
+- `charge-creator.ts` — generates charges from pricing lines × daysheet quantities (per_tonne, per_hour, per_load, etc.)
+- `reconciliation.ts` — docket-to-daysheet comparison with configurable tolerance, auto-processing eligibility check
+
+**New backend routes (2 route files, ~30 endpoints):**
+
+*Daysheet routes (`/api/v1/daysheets`):*
+- `GET /` — list with filters (status, job, driver, asset, date range, search)
+- `GET /:id` — detail with loads, dockets, charges, overages
+- `POST /` — create daysheet (auto-calculates time from start/end)
+- `PUT /:id` — update (recalculates time, blocks if processed)
+- `DELETE /:id` — soft-delete (blocks if processed)
+- `POST /:id/transition` — status transitions with validation
+- `POST /:id/loads` — add load (auto-calculates net weight, recalculates totals)
+- `PUT /:id/loads/:subId` — update load
+- `DELETE /:id/loads/:subId` — remove load (recalculates totals)
+- `POST /:id/process` — process daysheet: generates charges from pricing lines, blocks if pending overages
+- `POST /batch-process` — batch process up to 100 daysheets with partial failure handling
+- `POST /:id/detect-overages` — run overage detection per load (auto-approves minor)
+- `POST /:id/check-auto-process` — check auto-processing eligibility
+
+*Docket routes (`/api/v1/dockets`):*
+- `GET /` — list with filters (status, job, daysheet, type, date range, search)
+- `GET /:id` — detail with files
+- `POST /` — create docket (auto-matches to daysheet if provided)
+- `PUT /:id` — update (blocks if filed)
+- `DELETE /:id` — soft-delete
+- `POST /:id/transition` — status transitions
+- `POST /:id/reconcile` — reconcile against matched daysheet (tolerance-based comparison)
+- `GET /overages` — list overages with filters (approval status, severity, driver, asset)
+- `POST /overages/:id/decision` — approve/reject overage with notes
+- `GET /charges` — list charges for invoicing pipeline
+
+**New frontend pages (3 pages + API hooks):**
+- Daysheets list page — table with status/date/driver/asset filters, batch selection, batch process button
+- Daysheet create page — job selector, work date, time fields, submission channel, notes
+- Daysheet detail page — full processing UI with:
+  - Summary cards (driver, asset, weight/hours, loads)
+  - Loads table with add/remove (dialog for adding loads with weight/quantity fields)
+  - Overages table with one-click approve/reject
+  - Supporting dockets table with discrepancy indicators
+  - Charges table (visible after processing) with revenue/cost/profit summary
+  - Time section with start/end/overtime/billable breakdown
+  - Status-aware action buttons (Start Review, Check Overages, Reject, Process, Resubmit)
+- Sidebar navigation updated with "Daysheets" entry (ClipboardList icon)
+- New checkbox UI component (shadcn/ui pattern)
+- API hooks: 15+ TanStack Query hooks for all CRUD/process/transition/batch operations
+
+**New migration:**
+- `0014_daysheets_dockets.sql` — all 6 tables with indexes
+
+**Test counts:**
+- Before: 365 tests (201 shared + 158 backend + 4 pdf + 2 frontend)
+- After: **452 tests** (225 shared + 227 backend) — **87 new tests**
+- New unit tests: weight calculator (14), time calculator (10), overage detector (14), charge creator (14), reconciliation (11)
+- New schema tests: 24 (daysheet, load, docket, charge, overage decision, batch process, reconciliation schemas)
+
+**All checks pass:**
+- `pnpm lint` — zero errors
+- `pnpm type-check` — zero errors
+- `pnpm build` — all packages build
+
+**What's next:**
+Continue the financial pipeline: **Invoicing & RCTI** (doc 10) — generate invoices from the charges now flowing through the daysheet processing system. The complete path is: job → pricing lines → daysheet → charges → invoice.
+
+**What's STILL MISSING from doc 08 (deferred for future sessions):**
+- **AI docket reading (OCR)** — requires AI provider integration (doc 16), scaffolded with `aiConfidence` and `aiProcessed` fields
+- **File upload/download** — `docket_files` table ready, needs S3/Spaces integration (doc 15)
+- **Inline document viewing** — requires presigned URL generation from storage layer
+- **Auto-generation of daysheets** — for completed jobs with company assets, generate estimated daysheets
+- **Pattern detection dashboard** — overage trends by driver/asset/route (analytics feature, doc 17)
+- **Real-time WebSocket updates** — for multi-user processing (doc 13)
+- **DriverX submission channel** — depends on mobile app API (doc 20)
+- **Portal upload channel** — depends on contractor portal (doc 14)
+
 ## [0.16.0] — 2026-03-21
 
 ### Complete Pricing Engine — All Doc 09 Features Implemented

@@ -4,6 +4,7 @@ import {
   Building2,
   CalendarClock,
   ChevronRight,
+  ClipboardList,
   FolderKanban,
   Globe,
   LayoutDashboard,
@@ -60,6 +61,7 @@ const CORE_NAV: NavItem[] = [
 const OPERATIONS_NAV: NavItem[] = [
   { to: "/scheduling", label: "Scheduling", icon: CalendarClock },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
+  { to: "/daysheets", label: "Daysheets", icon: ClipboardList },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/companies", label: "Companies", icon: Building2 },
   { to: "/contacts", label: "Contacts", icon: UserRound },
@@ -97,6 +99,8 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/assets/new": "Add Asset",
   "/materials": "Materials",
   "/materials/new": "Add Material",
+  "/daysheets": "Daysheets",
+  "/daysheets/new": "New Daysheet",
   "/settings/job-types": "Job Types",
 };
 
@@ -161,7 +165,9 @@ export function AppShell(): React.JSX.Element {
                     ? "Asset Detail"
                     : location.pathname.startsWith("/materials/")
                       ? "Material Detail"
-                      : "Nexum");
+                      : location.pathname.startsWith("/daysheets/")
+                        ? "Daysheet Detail"
+                        : "Nexum");
 
   async function handleSignOut(): Promise<void> {
     // signOut() clears the local cookie and redirects to OpShield login

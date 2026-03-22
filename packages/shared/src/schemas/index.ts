@@ -23,7 +23,13 @@ import {
   INVOICE_STATUSES,
   RCTI_STATUSES,
   DAYSHEET_STATUSES,
+  DAYSHEET_SUBMISSION_CHANNELS,
   DOCKET_STATUSES,
+  DOCKET_TYPES,
+  CHARGE_STATUSES,
+  OVERAGE_TYPES,
+  OVERAGE_SEVERITIES,
+  OVERAGE_APPROVAL_STATUSES,
   ASSET_CATEGORIES,
   ASSET_STATUSES,
   ASSET_OWNERSHIP_TYPES,
@@ -528,10 +534,144 @@ export const rctiStatusSchema = z.enum(RCTI_STATUSES);
 // ── Daysheet Schemas ──
 
 export const daysheetStatusSchema = z.enum(DAYSHEET_STATUSES);
+export const daysheetSubmissionChannelSchema = z.enum(DAYSHEET_SUBMISSION_CHANNELS);
+
+/** Create a daysheet (primary work record for a job). */
+export const createDaysheetSchema = z.object({
+  jobId: z.uuid(),
+  assignmentId: z.uuid().optional(),
+  driverId: z.uuid().optional(),
+  assetId: z.uuid().optional(),
+  workDate: z.string(),
+  submissionChannel: daysheetSubmissionChannelSchema.default("staff_entry"),
+  // Tonnage work
+  loadCount: z.number().int().min(0).optional(),
+  // Hourly work
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  breakMinutes: z.number().int().min(0).optional(),
+  overtimeHours: z.number().min(0).optional(),
+  // Locations
+  pickupLocationId: z.uuid().optional(),
+  deliveryLocationId: z.uuid().optional(),
+  // Notes
+  notes: z.string().max(2000).optional(),
+  internalNotes: z.string().max(2000).optional(),
+});
+
+export const updateDaysheetSchema = createDaysheetSchema
+  .omit({ jobId: true, submissionChannel: true })
+  .partial();
+
+/** Create a daysheet load entry (one load within a daysheet). */
+export const createDaysheetLoadSchema = z.object({
+  loadNumber: z.number().int().min(1),
+  materialSourceType: z.enum(MATERIAL_SOURCE_TYPES).optional(),
+  materialSourceId: z.uuid().optional(),
+  materialName: z.string().max(255).optional(),
+  unitOfMeasure: z.enum(UNITS_OF_MEASURE).optional(),
+  quantity: z.number().min(0).optional(),
+  grossWeight: z.number().min(0).optional(),
+  tareWeight: z.number().min(0).optional(),
+  // Net weight auto-calculated: gross - tare
+  docketNumber: z.string().max(100).optional(),
+  notes: z.string().max(1000).optional(),
+});
+
+export const updateDaysheetLoadSchema = createDaysheetLoadSchema.partial();
+
+/** Transition a daysheet's status. */
+export const daysheetStatusTransitionSchema = z.object({
+  status: daysheetStatusSchema,
+  reason: z.string().max(500).optional(),
+});
 
 // ── Docket Schemas ──
 
 export const docketStatusSchema = z.enum(DOCKET_STATUSES);
+export const docketTypeSchema = z.enum(DOCKET_TYPES);
+
+/** Create a docket (external supporting document). */
+export const createDocketSchema = z.object({
+  jobId: z.uuid(),
+  daysheetId: z.uuid().optional(),
+  docketType: docketTypeSchema,
+  docketNumber: z.string().max(100).optional(),
+  issuerName: z.string().max(255).optional(),
+  issueDate: z.string().optional(),
+  // Extracted data (from AI or manual entry)
+  materialName: z.string().max(255).optional(),
+  quantity: z.number().min(0).optional(),
+  unitOfMeasure: z.enum(UNITS_OF_MEASURE).optional(),
+  grossWeight: z.number().min(0).optional(),
+  tareWeight: z.number().min(0).optional(),
+  tipFee: z.number().min(0).optional(),
+  environmentalLevy: z.number().min(0).optional(),
+  notes: z.string().max(2000).optional(),
+  // AI confidence (0-100 per field)
+  aiConfidence: z.record(z.string(), z.number().min(0).max(100)).optional(),
+});
+
+export const updateDocketSchema = createDocketSchema
+  .omit({ jobId: true })
+  .partial();
+
+/** Transition a docket's status. */
+export const docketStatusTransitionSchema = z.object({
+  status: docketStatusSchema,
+  reason: z.string().max(500).optional(),
+});
+
+// ── Charge Schemas ──
+
+export const chargeStatusSchema = z.enum(CHARGE_STATUSES);
+
+/** A charge line created from daysheet processing. */
+export const createChargeSchema = z.object({
+  daysheetId: z.uuid(),
+  jobId: z.uuid(),
+  pricingLineId: z.uuid().optional(),
+  lineType: z.enum(JOB_PRICING_LINE_TYPES),
+  partyId: z.uuid().optional(),
+  partyName: z.string().max(255).optional(),
+  category: z.enum(JOB_PRICING_CATEGORIES),
+  description: z.string().max(500).optional(),
+  rateType: z.enum(JOB_PRICING_RATE_TYPES),
+  quantity: z.number().default(0),
+  unitRate: z.number().default(0),
+  total: z.number().default(0),
+  isOverride: z.boolean().default(false),
+  overrideReason: z.string().max(500).optional(),
+});
+
+export const updateChargeSchema = createChargeSchema
+  .omit({ daysheetId: true, jobId: true })
+  .partial();
+
+// ── Overage Schemas ──
+
+export const overageTypeSchema = z.enum(OVERAGE_TYPES);
+export const overageSeveritySchema = z.enum(OVERAGE_SEVERITIES);
+export const overageApprovalStatusSchema = z.enum(OVERAGE_APPROVAL_STATUSES);
+
+/** Approve or reject an overage. */
+export const overageDecisionSchema = z.object({
+  approvalStatus: z.enum(["approved", "rejected"] as const),
+  approvalNotes: z.string().max(500).optional(),
+});
+
+// ── Batch Processing Schemas ──
+
+export const batchProcessDaysheetsSchema = z.object({
+  daysheetIds: z.array(z.uuid()).min(1).max(100),
+});
+
+// ── Reconciliation Schema ──
+
+export const reconcileDocketSchema = z.object({
+  docketId: z.uuid(),
+  daysheetId: z.uuid(),
+});
 
 // ── Asset Schemas ──
 
